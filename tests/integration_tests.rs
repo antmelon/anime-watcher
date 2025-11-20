@@ -3,10 +3,10 @@
 //! These tests verify the integration between different modules
 //! using mock data where appropriate.
 
-use anime_watcher::types::{Episode, Show, StreamSource};
+use anime_watcher::api::Provider;
 use anime_watcher::config::Config;
 use anime_watcher::history::WatchHistory;
-use anime_watcher::api::Provider;
+use anime_watcher::types::{Episode, Show, StreamSource};
 
 /// Test that shows can be created and displayed correctly.
 #[test]
@@ -38,9 +38,18 @@ fn test_episode_display_integration() {
 #[test]
 fn test_stream_source_quality_integration() {
     let sources = vec![
-        StreamSource { quality: 1080, url: "http://example.com/1080p".to_string() },
-        StreamSource { quality: 720, url: "http://example.com/720p".to_string() },
-        StreamSource { quality: 0, url: "http://example.com/unknown".to_string() },
+        StreamSource {
+            quality: 1080,
+            url: "http://example.com/1080p".to_string(),
+        },
+        StreamSource {
+            quality: 720,
+            url: "http://example.com/720p".to_string(),
+        },
+        StreamSource {
+            quality: 0,
+            url: "http://example.com/unknown".to_string(),
+        },
     ];
 
     assert_eq!(sources[0].to_display(), "1080p");
@@ -53,7 +62,10 @@ fn test_stream_source_quality_integration() {
 fn test_provider_parsing() {
     assert_eq!(Provider::from_name("Mp4"), Provider::Mp4);
     assert_eq!(Provider::from_name("Fm-Hls"), Provider::FmHls);
-    assert!(matches!(Provider::from_name("Unknown"), Provider::Unknown(_)));
+    assert!(matches!(
+        Provider::from_name("Unknown"),
+        Provider::Unknown(_)
+    ));
 }
 
 /// Test provider priority ordering.
@@ -135,11 +147,31 @@ fn test_watch_history_sorting() {
 #[test]
 fn test_episode_number_matching() {
     let episodes = vec![
-        Episode { id: "1".to_string(), number: 1, title: None },
-        Episode { id: "2".to_string(), number: 2, title: None },
-        Episode { id: "10".to_string(), number: 10, title: None },
-        Episode { id: "11".to_string(), number: 11, title: None },
-        Episode { id: "12".to_string(), number: 12, title: None },
+        Episode {
+            id: "1".to_string(),
+            number: 1,
+            title: None,
+        },
+        Episode {
+            id: "2".to_string(),
+            number: 2,
+            title: None,
+        },
+        Episode {
+            id: "10".to_string(),
+            number: 10,
+            title: None,
+        },
+        Episode {
+            id: "11".to_string(),
+            number: 11,
+            title: None,
+        },
+        Episode {
+            id: "12".to_string(),
+            number: 12,
+            title: None,
+        },
     ];
 
     // Simulate filtering by "1"
@@ -157,9 +189,18 @@ fn test_episode_number_matching() {
 #[test]
 fn test_quality_selection_best() {
     let sources = vec![
-        StreamSource { quality: 480, url: "480p".to_string() },
-        StreamSource { quality: 1080, url: "1080p".to_string() },
-        StreamSource { quality: 720, url: "720p".to_string() },
+        StreamSource {
+            quality: 480,
+            url: "480p".to_string(),
+        },
+        StreamSource {
+            quality: 1080,
+            url: "1080p".to_string(),
+        },
+        StreamSource {
+            quality: 720,
+            url: "720p".to_string(),
+        },
     ];
 
     let mut known: Vec<_> = sources.iter().filter(|s| s.quality > 0).collect();
@@ -173,9 +214,18 @@ fn test_quality_selection_best() {
 #[test]
 fn test_quality_selection_worst() {
     let sources = vec![
-        StreamSource { quality: 480, url: "480p".to_string() },
-        StreamSource { quality: 1080, url: "1080p".to_string() },
-        StreamSource { quality: 720, url: "720p".to_string() },
+        StreamSource {
+            quality: 480,
+            url: "480p".to_string(),
+        },
+        StreamSource {
+            quality: 1080,
+            url: "1080p".to_string(),
+        },
+        StreamSource {
+            quality: 720,
+            url: "720p".to_string(),
+        },
     ];
 
     let mut known: Vec<_> = sources.iter().filter(|s| s.quality > 0).collect();
@@ -189,9 +239,18 @@ fn test_quality_selection_worst() {
 #[test]
 fn test_quality_selection_specific() {
     let sources = vec![
-        StreamSource { quality: 480, url: "480p".to_string() },
-        StreamSource { quality: 1080, url: "1080p".to_string() },
-        StreamSource { quality: 720, url: "720p".to_string() },
+        StreamSource {
+            quality: 480,
+            url: "480p".to_string(),
+        },
+        StreamSource {
+            quality: 1080,
+            url: "1080p".to_string(),
+        },
+        StreamSource {
+            quality: 720,
+            url: "720p".to_string(),
+        },
     ];
 
     let target = 720;

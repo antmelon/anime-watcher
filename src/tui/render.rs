@@ -19,10 +19,10 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3),  // Header
-            Constraint::Length(3),  // Search bar
-            Constraint::Min(0),     // Content (sidebar + main)
-            Constraint::Length(3),  // Footer
+            Constraint::Length(3), // Header
+            Constraint::Length(3), // Search bar
+            Constraint::Min(0),    // Content (sidebar + main)
+            Constraint::Length(3), // Footer
         ])
         .split(size);
 
@@ -36,8 +36,8 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     let content_chunks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
-            Constraint::Length(30),  // Sidebar (fixed width)
-            Constraint::Min(0),      // Main content
+            Constraint::Length(30), // Sidebar (fixed width)
+            Constraint::Min(0),     // Main content
         ])
         .split(chunks[2]);
 
@@ -88,11 +88,19 @@ fn draw_header(frame: &mut Frame, app: &App, area: Rect) {
     };
 
     let header = Paragraph::new(Line::from(vec![
-        Span::styled("anime-watcher", Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "anime-watcher",
+            Style::default()
+                .fg(Color::Magenta)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::raw("  "),
         Span::styled(format!("[{}]", app.mode), mode_style),
         Span::raw("  "),
-        Span::styled(format!("[{}]", app.quality), Style::default().fg(Color::Green)),
+        Span::styled(
+            format!("[{}]", app.quality),
+            Style::default().fg(Color::Green),
+        ),
         if app.download_mode {
             Span::styled("  [download]", Style::default().fg(Color::Red))
         } else {
@@ -134,10 +142,7 @@ fn draw_search_bar(frame: &mut Frame, app: &App, area: Rect) {
 
     // Show cursor if search is focused
     if app.search_focused {
-        frame.set_cursor_position((
-            area.x + app.search_input.len() as u16 + 1,
-            area.y + 1,
-        ));
+        frame.set_cursor_position((area.x + app.search_input.len() as u16 + 1, area.y + 1));
     }
 }
 
@@ -163,9 +168,9 @@ fn draw_sidebar(frame: &mut Frame, app: &mut App, area: Rect) {
             .history_records
             .iter()
             .map(|(_, name, ep, _)| {
-                // Truncate name if too long
-                let display_name = if name.len() > 20 {
-                    format!("{}...", &name[..17])
+                // Truncate name if too long (use chars to avoid UTF-8 panics)
+                let display_name = if name.chars().count() > 20 {
+                    format!("{}...", name.chars().take(17).collect::<String>())
                 } else {
                     name.clone()
                 };
@@ -209,7 +214,7 @@ fn draw_startup_main(frame: &mut Frame, _app: &App, area: Rect) {
         - j/k or arrows: Navigate\n\
         - Enter: Select\n\
         - Tab: Switch panel\n\
-        - q: Quit"
+        - q: Quit",
     )
     .block(Block::default().borders(Borders::ALL).title("Welcome"))
     .wrap(Wrap { trim: true });
@@ -232,8 +237,16 @@ fn draw_show_list_main(frame: &mut Frame, app: &mut App, area: Rect) {
         .collect();
 
     let list = List::new(items)
-        .block(Block::default().borders(Borders::ALL).title("Search Results"))
-        .highlight_style(Style::default().bg(Color::DarkGray).add_modifier(Modifier::BOLD))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Search Results"),
+        )
+        .highlight_style(
+            Style::default()
+                .bg(Color::DarkGray)
+                .add_modifier(Modifier::BOLD),
+        )
         .highlight_symbol("> ");
 
     frame.render_stateful_widget(list, chunks[0], &mut app.show_list_state);
@@ -332,7 +345,11 @@ fn draw_episode_list_main(frame: &mut Frame, app: &mut App, area: Rect) {
 
     let list = List::new(items)
         .block(Block::default().borders(Borders::ALL).title(title))
-        .highlight_style(Style::default().bg(Color::DarkGray).add_modifier(Modifier::BOLD))
+        .highlight_style(
+            Style::default()
+                .bg(Color::DarkGray)
+                .add_modifier(Modifier::BOLD),
+        )
         .highlight_symbol("> ");
 
     frame.render_stateful_widget(list, chunks[1], &mut app.episode_list_state);
@@ -342,7 +359,11 @@ fn draw_episode_list_main(frame: &mut Frame, app: &mut App, area: Rect) {
         let filtered = app.get_filtered_episodes();
         if i < filtered.len() {
             let episode = filtered[i];
-            let action = if app.download_mode { "download" } else { "stream" };
+            let action = if app.download_mode {
+                "download"
+            } else {
+                "stream"
+            };
             format!("Episode {}\n\nPress Enter to {}", episode.number, action)
         } else {
             String::new()
@@ -397,8 +418,16 @@ fn draw_quality_select(frame: &mut Frame, app: &mut App, area: Rect) {
         .collect();
 
     let list = List::new(items)
-        .block(Block::default().borders(Borders::ALL).title("Select Quality"))
-        .highlight_style(Style::default().bg(Color::DarkGray).add_modifier(Modifier::BOLD))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Select Quality"),
+        )
+        .highlight_style(
+            Style::default()
+                .bg(Color::DarkGray)
+                .add_modifier(Modifier::BOLD),
+        )
         .highlight_symbol("> ");
 
     frame.render_stateful_widget(list, area, &mut app.quality_list_state);
@@ -416,7 +445,11 @@ fn draw_playback(frame: &mut Frame, app: &mut App, area: Rect) {
 
     let list = List::new(items)
         .block(Block::default().borders(Borders::ALL).title(title))
-        .highlight_style(Style::default().bg(Color::DarkGray).add_modifier(Modifier::BOLD))
+        .highlight_style(
+            Style::default()
+                .bg(Color::DarkGray)
+                .add_modifier(Modifier::BOLD),
+        )
         .highlight_symbol("> ");
 
     frame.render_stateful_widget(list, area, &mut app.playback_list_state);
@@ -430,8 +463,16 @@ fn draw_batch_select(frame: &mut Frame, app: &mut App, area: Rect) {
     ];
 
     let list = List::new(items)
-        .block(Block::default().borders(Borders::ALL).title("Download Mode"))
-        .highlight_style(Style::default().bg(Color::DarkGray).add_modifier(Modifier::BOLD))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Download Mode"),
+        )
+        .highlight_style(
+            Style::default()
+                .bg(Color::DarkGray)
+                .add_modifier(Modifier::BOLD),
+        )
         .highlight_symbol("> ");
 
     frame.render_stateful_widget(list, area, &mut app.batch_list_state);
@@ -458,20 +499,16 @@ fn draw_range_input_popup(frame: &mut Frame, input: &str) {
     let area = centered_rect(50, 15, frame.area());
     frame.render_widget(Clear, area);
 
-    let popup = Paragraph::new(format!("Enter range (e.g., 1-12): {}", input))
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title("Episode Range"),
-        );
+    let popup = Paragraph::new(format!("Enter range (e.g., 1-12): {}", input)).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title("Episode Range"),
+    );
 
     frame.render_widget(popup, area);
 
     // Show cursor
-    frame.set_cursor_position((
-        area.x + 26 + input.len() as u16,
-        area.y + 1,
-    ));
+    frame.set_cursor_position((area.x + 26 + input.len() as u16, area.y + 1));
 }
 
 fn draw_batch_confirm_popup(frame: &mut Frame, app: &App) {
@@ -599,10 +636,7 @@ Episode Filter
             ("Startup", content)
         }
         Screen::Search => {
-            let content = format!(
-                "{}{}Press ? to close",
-                global_keys, search_keys
-            );
+            let content = format!("{}{}Press ? to close", global_keys, search_keys);
             ("Search", content)
         }
         Screen::ShowList => {
@@ -620,10 +654,7 @@ Episode Filter
             ("Episode List", content)
         }
         Screen::QualitySelect => {
-            let content = format!(
-                "{}{}Press ? to close",
-                global_keys, navigation_keys
-            );
+            let content = format!("{}{}Press ? to close", global_keys, navigation_keys);
             ("Quality Select", content)
         }
         Screen::Playback => {
@@ -641,10 +672,7 @@ Episode Filter
             ("Batch Download", content)
         }
         Screen::Loading => {
-            let content = format!(
-                "{}Press ? to close",
-                global_keys
-            );
+            let content = format!("{}Press ? to close", global_keys);
             ("Loading", content)
         }
     }

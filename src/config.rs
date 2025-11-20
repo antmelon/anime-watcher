@@ -68,7 +68,9 @@ impl Config {
     /// or a platform-appropriate location on other systems.
     pub fn get_config_path() -> Result<PathBuf, io::Error> {
         let config_dir = dirs::config_dir()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "Could not find config directory"))?
+            .ok_or_else(|| {
+                io::Error::new(io::ErrorKind::NotFound, "Could not find config directory")
+            })?
             .join("anime-watcher");
 
         Ok(config_dir.join("config.toml"))
