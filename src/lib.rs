@@ -25,7 +25,7 @@
 pub mod api;
 pub mod config;
 pub mod download;
+pub mod error;
 pub mod history;
 pub mod tui;
 pub mod types;
-pub mod ui;

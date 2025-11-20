@@ -3,10 +3,10 @@
 mod api;
 mod config;
 mod download;
+mod error;
 mod history;
 mod tui;
 mod types;
-mod ui;
 
 use crate::api::{fetch_episodes, fetch_stream_sources, search_shows};
 use crate::config::Config;
@@ -22,11 +22,11 @@ use crossterm::{
 };
 use log::{debug, info, warn};
 use ratatui::prelude::*;
+use std::env;
 use std::io::{self, stdout};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::Duration;
-use std::env;
 
 /// Command-line arguments for the anime-watcher application.
 #[derive(Parser, Debug)]
@@ -63,15 +63,67 @@ struct Args {
 }
 
 /// Search for an executable in the system PATH.
+///
+/// Handles:
+/// - Absolute paths (checked directly)
+/// - Relative paths with separators (checked directly)
+/// - Windows PATHEXT extensions (.exe, .cmd, .bat)
+/// - Standard PATH search
 fn find_in_path<P: AsRef<Path>>(exe_name: P) -> Option<PathBuf> {
+    let exe_path = exe_name.as_ref();
+
+    // If it's an absolute path or contains path separators, check it directly
+    if exe_path.is_absolute()
+        || exe_path
+            .to_string_lossy()
+            .contains(std::path::MAIN_SEPARATOR)
+    {
+        if exe_path.is_file() {
+            return Some(exe_path.to_path_buf());
+        }
+        // On Windows, also try with common extensions
+        #[cfg(windows)]
+        {
+            for ext in &[".exe", ".cmd", ".bat", ".com"] {
+                let with_ext = exe_path.with_extension(&ext[1..]);
+                if with_ext.is_file() {
+                    return Some(with_ext);
+                }
+            }
+        }
+        return None;
+    }
+
     env::var_os("PATH").and_then(|paths| {
+        // Get PATHEXT on Windows for executable extensions
+        #[cfg(windows)]
+        let extensions: Vec<String> = env::var("PATHEXT")
+            .unwrap_or_else(|_| ".COM;.EXE;.BAT;.CMD".to_string())
+            .split(';')
+            .map(|s| s.to_lowercase())
+            .collect();
+
         env::split_paths(&paths).find_map(|dir| {
             let full_path = dir.join(&exe_name);
+
+            // Check exact name first
             if full_path.is_file() {
-                Some(full_path)
-            } else {
-                None
+                return Some(full_path);
             }
+
+            // On Windows, try with PATHEXT extensions
+            #[cfg(windows)]
+            {
+                for ext in &extensions {
+                    let ext_trimmed = ext.trim_start_matches('.');
+                    let with_ext = full_path.with_extension(ext_trimmed);
+                    if with_ext.is_file() {
+                        return Some(with_ext);
+                    }
+                }
+            }
+
+            None
         })
     })
 }
@@ -222,7 +274,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Verify download directory
     if download_mode && !download_dir.exists() {
-        eprintln!("Error: Download directory '{}' does not exist.", download_dir.display());
+        eprintln!(
+            "Error: Download directory '{}' does not exist.",
+            download_dir.display()
+        );
+        std::process::exit(1);
+    }
+
+    // Verify yt-dlp is available (required for stream extraction)
+    if find_in_path("yt-dlp").is_none() {
+        eprintln!("Error: yt-dlp not found in PATH. Please install yt-dlp.");
+        eprintln!("       Visit: https://github.com/yt-dlp/yt-dlp#installation");
         std::process::exit(1);
     }
 
@@ -263,12 +325,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let recent = watch_history.get_recent(10);
     let history_records: Vec<(String, String, i64, String)> = recent
         .iter()
-        .map(|r| (r.show_id.clone(), r.show_name.clone(), r.episode, r.mode.clone()))
+        .map(|r| {
+            (
+                r.show_id.clone(),
+                r.show_name.clone(),
+                r.episode,
+                r.mode.clone(),
+            )
+        })
         .collect();
     app.set_history(history_records);
 
     // Main event loop
-    let result = run_app(&mut terminal, &mut app, &mut watch_history, &mode, &quality, download_dir, &player, &player_args).await;
+    let result = run_app(
+        &mut terminal,
+        &mut app,
+        &mut watch_history,
+        &mode,
+        &quality,
+        download_dir,
+        &player,
+        &player_args,
+    )
+    .await;
 
     // Restore terminal
     restore_terminal()?;
@@ -411,17 +490,22 @@ async fn run_app(
                     }
                     Action::Next | Action::Previous | Action::Replay => {
                         if let Some(current_ep) = &app.current_episode {
-                            let current_idx = app.episodes.iter().position(|e| e.number == current_ep.number);
+                            let current_idx = app
+                                .episodes
+                                .iter()
+                                .position(|e| e.number == current_ep.number);
 
                             let new_episode = match action {
                                 Action::Next => {
                                     current_idx.and_then(|i| app.episodes.get(i + 1).cloned())
                                 }
-                                Action::Previous => {
-                                    current_idx.and_then(|i| {
-                                        if i > 0 { app.episodes.get(i - 1).cloned() } else { None }
-                                    })
-                                }
+                                Action::Previous => current_idx.and_then(|i| {
+                                    if i > 0 {
+                                        app.episodes.get(i - 1).cloned()
+                                    } else {
+                                        None
+                                    }
+                                }),
                                 Action::Replay => Some(current_ep.clone()),
                                 _ => None,
                             };
@@ -476,7 +560,8 @@ async fn run_app(
                     }
                     Action::ContinueFromHistory(i) => {
                         if i < app.history_records.len() {
-                            let (show_id, show_name, episode_num, record_mode) = app.history_records[i].clone();
+                            let (show_id, show_name, episode_num, record_mode) =
+                                app.history_records[i].clone();
 
                             app.set_loading(&format!("Loading {}...", show_name));
                             terminal.draw(|f| draw(f, app))?;
@@ -489,7 +574,9 @@ async fn run_app(
                                     let resume_ep = episodes
                                         .iter()
                                         .find(|e| e.number == episode_num + 1)
-                                        .or_else(|| episodes.iter().find(|e| e.number == episode_num))
+                                        .or_else(|| {
+                                            episodes.iter().find(|e| e.number == episode_num)
+                                        })
                                         .cloned()
                                         .unwrap_or_else(|| episodes[0].clone());
 
@@ -501,7 +588,11 @@ async fn run_app(
                                     app.set_episodes(episodes);
 
                                     // Select the resume episode
-                                    let idx = app.episodes.iter().position(|e| e.number == resume_ep.number).unwrap_or(0);
+                                    let idx = app
+                                        .episodes
+                                        .iter()
+                                        .position(|e| e.number == resume_ep.number)
+                                        .unwrap_or(0);
                                     app.episode_list_state.select(Some(idx));
                                 }
                                 Err(e) => {
@@ -520,13 +611,12 @@ async fn run_app(
                         if let (Some(show), Some(_)) = (show, current_ep) {
                             let episodes_to_download: Vec<_> = match &action {
                                 Action::BatchAll => app.episodes.clone(),
-                                Action::BatchRange(start, end) => {
-                                    app.episodes
-                                        .iter()
-                                        .filter(|e| e.number >= *start && e.number <= *end)
-                                        .cloned()
-                                        .collect()
-                                }
+                                Action::BatchRange(start, end) => app
+                                    .episodes
+                                    .iter()
+                                    .filter(|e| e.number >= *start && e.number <= *end)
+                                    .cloned()
+                                    .collect(),
                                 Action::BatchSingle => {
                                     vec![app.current_episode.clone().unwrap()]
                                 }
@@ -536,17 +626,15 @@ async fn run_app(
                             // Perform batch download
                             let total = episodes_to_download.len();
                             for (idx, episode) in episodes_to_download.iter().enumerate() {
-                                let output_path = get_output_path(
-                                    download_dir,
-                                    &show.name,
-                                    episode.number,
-                                    mode,
-                                );
+                                let output_path =
+                                    get_output_path(download_dir, &show.name, episode.number, mode);
 
                                 if output_path.exists() {
                                     app.set_status(&format!(
                                         "[{}/{}] Skipping {} (exists)",
-                                        idx + 1, total, output_path.display()
+                                        idx + 1,
+                                        total,
+                                        output_path.display()
                                     ));
                                     terminal.draw(|f| draw(f, app))?;
                                     continue;
@@ -554,7 +642,9 @@ async fn run_app(
 
                                 app.set_loading(&format!(
                                     "[{}/{}] Downloading Episode {}...",
-                                    idx + 1, total, episode.number
+                                    idx + 1,
+                                    total,
+                                    episode.number
                                 ));
                                 terminal.draw(|f| draw(f, app))?;
 
@@ -573,16 +663,23 @@ async fn run_app(
                                                     let _ = watch_history.save();
                                                 }
                                                 Err(e) => {
-                                                    app.set_error(&format!("Download failed: {}", e));
+                                                    app.set_error(&format!(
+                                                        "Download failed: {}",
+                                                        e
+                                                    ));
                                                     terminal.draw(|f| draw(f, app))?;
-                                                    tokio::time::sleep(Duration::from_secs(1)).await;
+                                                    tokio::time::sleep(Duration::from_secs(1))
+                                                        .await;
                                                     app.clear_error();
                                                 }
                                             }
                                         }
                                     }
                                     _ => {
-                                        app.set_error(&format!("No sources for episode {}", episode.number));
+                                        app.set_error(&format!(
+                                            "No sources for episode {}",
+                                            episode.number
+                                        ));
                                         terminal.draw(|f| draw(f, app))?;
                                         tokio::time::sleep(Duration::from_secs(1)).await;
                                         app.clear_error();
