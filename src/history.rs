@@ -47,16 +47,22 @@ impl WatchHistory {
     pub fn get_history_path() -> Result<PathBuf, io::Error> {
         let data_dir = if cfg!(target_os = "linux") {
             dirs::data_local_dir()
-                .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "Could not find data directory"))?
+                .ok_or_else(|| {
+                    io::Error::new(io::ErrorKind::NotFound, "Could not find data directory")
+                })?
                 .join("anime-watcher")
         } else if cfg!(target_os = "macos") {
             dirs::data_dir()
-                .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "Could not find data directory"))?
+                .ok_or_else(|| {
+                    io::Error::new(io::ErrorKind::NotFound, "Could not find data directory")
+                })?
                 .join("anime-watcher")
         } else {
             // Windows or other
             dirs::data_local_dir()
-                .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "Could not find data directory"))?
+                .ok_or_else(|| {
+                    io::Error::new(io::ErrorKind::NotFound, "Could not find data directory")
+                })?
                 .join("anime-watcher")
         };
 

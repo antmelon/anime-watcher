@@ -48,10 +48,7 @@ pub async fn download_file(
     if status.success() {
         Ok(())
     } else {
-        Err(format!(
-            "yt-dlp exited with status: {}",
-            status.code().unwrap_or(-1)
-        ).into())
+        Err(format!("yt-dlp exited with status: {}", status.code().unwrap_or(-1)).into())
     }
 }
 

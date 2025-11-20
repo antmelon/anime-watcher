@@ -79,8 +79,10 @@ impl Provider {
 
 /// Check if an error is retryable (network errors, timeouts, server errors).
 fn is_retryable_error(error: &reqwest::Error) -> bool {
-    error.is_timeout() || error.is_connect() || error.is_request() ||
-    error.status().map(|s| s.is_server_error()).unwrap_or(false)
+    error.is_timeout()
+        || error.is_connect()
+        || error.is_request()
+        || error.status().map(|s| s.is_server_error()).unwrap_or(false)
 }
 
 /// Retry an async operation with exponential backoff.
@@ -110,7 +112,11 @@ where
         match f().await {
             Ok(result) => {
                 if attempt > 0 {
-                    info!("{} succeeded after {} attempts", operation_name, attempt + 1);
+                    info!(
+                        "{} succeeded after {} attempts",
+                        operation_name,
+                        attempt + 1
+                    );
                 }
                 return Ok(result);
             }
@@ -138,8 +144,11 @@ where
         "{} failed after {} attempts: {}",
         operation_name,
         MAX_RETRIES + 1,
-        last_error.map(|e| e.to_string()).unwrap_or_else(|| "unknown error".to_string())
-    ).into())
+        last_error
+            .map(|e| e.to_string())
+            .unwrap_or_else(|| "unknown error".to_string())
+    )
+    .into())
 }
 
 // Response types for shows search
@@ -214,7 +223,10 @@ struct ClockLink {
 /// # Examples
 ///
 /// ```
-/// // Internal function - see tests for usage examples
+/// use anime_watcher::api::decode_allanime_url;
+///
+/// let decoded = decode_allanime_url("48656c6c6f");
+/// assert_eq!(decoded, "Hello");
 /// ```
 pub fn decode_allanime_url(encoded: &str) -> String {
     let cleaned = encoded.trim_start_matches('-');
@@ -311,30 +323,25 @@ pub async fn search_shows(
     let variables_str = serde_json::to_string(&variables)?;
     let query_string = query_str.to_string();
 
-    let resp = retry_with_backoff(
-        &format!("Search for '{}'", query),
-        || {
-            let client = client.clone();
-            let variables_str = variables_str.clone();
-            let query_string = query_string.clone();
-            async move {
-                client
-                    .get(API_URL)
-                    .header("Referer", "https://allmanga.to")
-                    .query(&[
-                        ("variables", variables_str),
-                        ("query", query_string),
-                    ])
-                    .send()
-                    .await
-            }
-        },
-    )
+    let resp = retry_with_backoff(&format!("Search for '{}'", query), || {
+        let client = client.clone();
+        let variables_str = variables_str.clone();
+        let query_string = query_string.clone();
+        async move {
+            client
+                .get(API_URL)
+                .header("Referer", "https://allmanga.to")
+                .query(&[("variables", variables_str), ("query", query_string)])
+                .send()
+                .await
+        }
+    })
     .await?;
 
-    let parsed: ShowsResponse = resp.json().await.map_err(|e| {
-        format!("Failed to parse search results for '{}': {}", query, e)
-    })?;
+    let parsed: ShowsResponse = resp
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse search results for '{}': {}", query, e))?;
 
     let shows: Vec<Show> = parsed
         .data
@@ -395,30 +402,25 @@ pub async fn fetch_episodes(
     let variables_str = serde_json::to_string(&variables)?;
     let query_string = EPISODES_QUERY.to_string();
 
-    let resp = retry_with_backoff(
-        "Fetch episodes",
-        || {
-            let client = client.clone();
-            let variables_str = variables_str.clone();
-            let query_string = query_string.clone();
-            async move {
-                client
-                    .get(API_URL)
-                    .header("Referer", "https://allmanga.to")
-                    .query(&[
-                        ("variables", variables_str),
-                        ("query", query_string),
-                    ])
-                    .send()
-                    .await
-            }
-        },
-    )
+    let resp = retry_with_backoff("Fetch episodes", || {
+        let client = client.clone();
+        let variables_str = variables_str.clone();
+        let query_string = query_string.clone();
+        async move {
+            client
+                .get(API_URL)
+                .header("Referer", "https://allmanga.to")
+                .query(&[("variables", variables_str), ("query", query_string)])
+                .send()
+                .await
+        }
+    })
     .await?;
 
-    let parsed: EpisodeResponse = resp.json().await.map_err(|e| {
-        format!("Failed to parse episode list: {}", e)
-    })?;
+    let parsed: EpisodeResponse = resp
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse episode list: {}", e))?;
 
     let episode_list = parsed
         .data
@@ -463,7 +465,10 @@ pub async fn fetch_stream_sources(
     mode: &str,
     episode_str: &str,
 ) -> Result<Vec<StreamSource>, Box<dyn std::error::Error>> {
-    debug!("Fetching stream sources for episode {} of show {}", episode_str, show_id);
+    debug!(
+        "Fetching stream sources for episode {} of show {}",
+        episode_str, show_id
+    );
 
     let variables = serde_json::json!({
         "showId": show_id,
@@ -526,10 +531,7 @@ pub async fn fetch_stream_sources(
                 client
                     .get(API_URL)
                     .header("Referer", "https://allmanga.to")
-                    .query(&[
-                        ("variables", variables_str),
-                        ("query", query_string),
-                    ])
+                    .query(&[("variables", variables_str), ("query", query_string)])
                     .send()
                     .await
             }
@@ -538,7 +540,10 @@ pub async fn fetch_stream_sources(
     .await?;
 
     let parsed: EpisodeSourcesResponse = resp.json().await.map_err(|e| {
-        format!("Failed to parse stream sources for episode {}: {}", episode_str, e)
+        format!(
+            "Failed to parse stream sources for episode {}: {}",
+            episode_str, e
+        )
     })?;
 
     if parsed.data.episode.source_urls.is_empty() {
@@ -623,7 +628,11 @@ pub async fn fetch_stream_sources(
         }
     }
 
-    debug!("Found {} stream sources for episode {}", result.len(), episode_str);
+    debug!(
+        "Found {} stream sources for episode {}",
+        result.len(),
+        episode_str
+    );
 
     Ok(result)
 }

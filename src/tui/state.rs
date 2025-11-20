@@ -264,7 +264,10 @@ impl App {
                     Focus::Main => Focus::Sidebar,
                 };
                 // Initialize sidebar selection if needed
-                if self.focus == Focus::Sidebar && self.history_list_state.selected().is_none() && !self.history_records.is_empty() {
+                if self.focus == Focus::Sidebar
+                    && self.history_list_state.selected().is_none()
+                    && !self.history_records.is_empty()
+                {
                     self.history_list_state.select(Some(0));
                 }
                 return Action::None;
@@ -513,7 +516,9 @@ impl App {
                     if i < filtered.len() {
                         let episode_num = filtered[i].number;
                         // Find the index in the original list
-                        if let Some(original_idx) = self.episodes.iter().position(|e| e.number == episode_num) {
+                        if let Some(original_idx) =
+                            self.episodes.iter().position(|e| e.number == episode_num)
+                        {
                             return Action::SelectEpisode(original_idx);
                         }
                     }
@@ -706,7 +711,10 @@ impl App {
             KeyCode::Enter => {
                 let parts: Vec<&str> = self.range_input.split('-').collect();
                 if parts.len() == 2 {
-                    if let (Ok(start), Ok(end)) = (parts[0].trim().parse::<i64>(), parts[1].trim().parse::<i64>()) {
+                    if let (Ok(start), Ok(end)) = (
+                        parts[0].trim().parse::<i64>(),
+                        parts[1].trim().parse::<i64>(),
+                    ) {
                         // Validate range bounds
                         if start > end {
                             self.set_error("Invalid range: start must be <= end");
@@ -722,11 +730,17 @@ impl App {
                         let min_episode = self.episodes.iter().map(|e| e.number).min().unwrap_or(1);
 
                         if start > max_episode || end > max_episode {
-                            self.set_error(&format!("Invalid range: episodes only go up to {}", max_episode));
+                            self.set_error(&format!(
+                                "Invalid range: episodes only go up to {}",
+                                max_episode
+                            ));
                             return Action::None;
                         }
                         if start < min_episode {
-                            self.set_error(&format!("Invalid range: episodes start at {}", min_episode));
+                            self.set_error(&format!(
+                                "Invalid range: episodes start at {}",
+                                min_episode
+                            ));
                             return Action::None;
                         }
 
@@ -780,12 +794,11 @@ impl App {
     pub fn get_pending_batch_count(&self) -> usize {
         match &self.pending_batch_action {
             Some(Action::BatchAll) => self.episodes.len(),
-            Some(Action::BatchRange(start, end)) => {
-                self.episodes
-                    .iter()
-                    .filter(|e| e.number >= *start && e.number <= *end)
-                    .count()
-            }
+            Some(Action::BatchRange(start, end)) => self
+                .episodes
+                .iter()
+                .filter(|e| e.number >= *start && e.number <= *end)
+                .count(),
             _ => 0,
         }
     }
@@ -796,7 +809,9 @@ impl App {
 
         if let Some(ep) = &self.current_episode {
             let current_idx = self.episodes.iter().position(|e| e.number == ep.number);
-            let has_next = current_idx.map(|i| i + 1 < self.episodes.len()).unwrap_or(false);
+            let has_next = current_idx
+                .map(|i| i + 1 < self.episodes.len())
+                .unwrap_or(false);
             let has_prev = current_idx.map(|i| i > 0).unwrap_or(false);
 
             if has_next {
