@@ -20,6 +20,63 @@ const BASE_RETRY_DELAY_MS: u64 = 500;
 const API_URL: &str = "https://api.allanime.day/api";
 const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36";
 
+/// Stream provider types from AllAnime.
+///
+/// Providers are prioritized by quality and reliability for streaming.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Provider {
+    Mp4,
+    Sw,
+    Ok,
+    Vg,
+    FmHls,
+    SsHls,
+    Default,
+    LufMp4,
+    SMp4,
+    Kir,
+    Sak,
+    Unknown(String),
+}
+
+impl Provider {
+    /// Parse a provider name string into a Provider enum.
+    pub fn from_name(name: &str) -> Self {
+        match name {
+            "Mp4" => Provider::Mp4,
+            "Sw" => Provider::Sw,
+            "Ok" => Provider::Ok,
+            "Vg" => Provider::Vg,
+            "Fm-Hls" => Provider::FmHls,
+            "Ss-Hls" => Provider::SsHls,
+            "Default" => Provider::Default,
+            "Luf-mp4" => Provider::LufMp4,
+            "S-mp4" => Provider::SMp4,
+            "Kir" => Provider::Kir,
+            "Sak" => Provider::Sak,
+            other => Provider::Unknown(other.to_string()),
+        }
+    }
+
+    /// Get the priority of this provider (lower is better).
+    pub fn priority(&self) -> usize {
+        match self {
+            Provider::Mp4 => 0,
+            Provider::Sw => 1,
+            Provider::Ok => 2,
+            Provider::Vg => 3,
+            Provider::FmHls => 4,
+            Provider::SsHls => 5,
+            Provider::Default => 6,
+            Provider::LufMp4 => 7,
+            Provider::SMp4 => 8,
+            Provider::Kir => 9,
+            Provider::Sak => 10,
+            Provider::Unknown(_) => 999,
+        }
+    }
+}
+
 /// Check if an error is retryable (network errors, timeouts, server errors).
 fn is_retryable_error(error: &reqwest::Error) -> bool {
     error.is_timeout() || error.is_connect() || error.is_request() ||
@@ -159,7 +216,7 @@ struct ClockLink {
 /// ```
 /// // Internal function - see tests for usage examples
 /// ```
-fn decode_allanime_url(encoded: &str) -> String {
+pub fn decode_allanime_url(encoded: &str) -> String {
     let cleaned = encoded.trim_start_matches('-');
     let chars: Vec<char> = cleaned.chars().collect();
     let mut result = String::new();
@@ -488,22 +545,12 @@ pub async fn fetch_stream_sources(
         return Ok(vec![]);
     }
 
-    // Preferred providers - prioritize those with direct URLs
-    let preferred_providers = [
-        "Mp4", "Sw", "Ok", "Vg", "Fm-Hls", "Ss-Hls", "Default", "Luf-mp4", "S-mp4", "Kir", "Sak",
-    ];
-
+    // Sort sources by provider priority
     let mut sorted_sources = parsed.data.episode.source_urls.clone();
     sorted_sources.sort_by(|a, b| {
-        let a_idx = preferred_providers
-            .iter()
-            .position(|&p| a.source_name == p)
-            .unwrap_or(999);
-        let b_idx = preferred_providers
-            .iter()
-            .position(|&p| b.source_name == p)
-            .unwrap_or(999);
-        a_idx.cmp(&b_idx)
+        let a_provider = Provider::from_name(&a.source_name);
+        let b_provider = Provider::from_name(&b.source_name);
+        a_provider.priority().cmp(&b_provider.priority())
     });
 
     let mut result = Vec::new();

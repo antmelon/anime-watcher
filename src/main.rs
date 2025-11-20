@@ -3,10 +3,10 @@
 mod api;
 mod config;
 mod download;
+mod error;
 mod history;
 mod tui;
 mod types;
-mod ui;
 
 use crate::api::{fetch_episodes, fetch_stream_sources, search_shows};
 use crate::config::Config;
@@ -223,6 +223,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Verify download directory
     if download_mode && !download_dir.exists() {
         eprintln!("Error: Download directory '{}' does not exist.", download_dir.display());
+        std::process::exit(1);
+    }
+
+    // Verify yt-dlp is available (required for stream extraction)
+    if find_in_path("yt-dlp").is_none() {
+        eprintln!("Error: yt-dlp not found in PATH. Please install yt-dlp.");
+        eprintln!("       Visit: https://github.com/yt-dlp/yt-dlp#installation");
         std::process::exit(1);
     }
 
