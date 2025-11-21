@@ -1,5 +1,6 @@
 //! Application state management and input handling.
 
+use crate::config::Keybindings;
 use crate::types::{Episode, Show, StreamSource};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::widgets::ListState;
@@ -72,11 +73,18 @@ pub struct App {
     pub batch_confirm_mode: bool,
     /// The pending batch action to confirm
     pub pending_batch_action: Option<Action>,
+    /// Custom keybindings
+    pub keybindings: Keybindings,
 }
 
 impl App {
     /// Create a new App with default state.
-    pub fn new(mode: String, quality: String, download_mode: bool) -> Self {
+    pub fn new(
+        mode: String,
+        quality: String,
+        download_mode: bool,
+        keybindings: Keybindings,
+    ) -> Self {
         let mut startup_state = ListState::default();
         startup_state.select(Some(0));
 
@@ -113,6 +121,7 @@ impl App {
             episode_filter_active: false,
             batch_confirm_mode: false,
             pending_batch_action: None,
+            keybindings,
         }
     }
 
@@ -220,17 +229,17 @@ impl App {
 
         // Handle help modal
         if self.show_help {
-            match key.code {
-                KeyCode::Esc | KeyCode::Char('?') | KeyCode::Char('q') => {
-                    self.show_help = false;
-                }
-                _ => {}
+            if key.code == KeyCode::Esc
+                || self.keybindings.matches(&self.keybindings.help, &key)
+                || self.keybindings.matches(&self.keybindings.quit, &key)
+            {
+                self.show_help = false;
             }
             return Action::None;
         }
 
-        // Toggle help with ?
-        if key.code == KeyCode::Char('?') {
+        // Toggle help
+        if self.keybindings.matches(&self.keybindings.help, &key) {
             self.show_help = true;
             return Action::None;
         }
@@ -256,28 +265,29 @@ impl App {
         }
 
         // Global keys that work in most screens
-        match key.code {
-            // Tab to switch focus
-            KeyCode::Tab => {
-                self.focus = match self.focus {
-                    Focus::Sidebar => Focus::Main,
-                    Focus::Main => Focus::Sidebar,
-                };
-                // Initialize sidebar selection if needed
-                if self.focus == Focus::Sidebar
-                    && self.history_list_state.selected().is_none()
-                    && !self.history_records.is_empty()
-                {
-                    self.history_list_state.select(Some(0));
-                }
-                return Action::None;
+        // Toggle focus
+        if self
+            .keybindings
+            .matches(&self.keybindings.toggle_focus, &key)
+        {
+            self.focus = match self.focus {
+                Focus::Sidebar => Focus::Main,
+                Focus::Main => Focus::Sidebar,
+            };
+            // Initialize sidebar selection if needed
+            if self.focus == Focus::Sidebar
+                && self.history_list_state.selected().is_none()
+                && !self.history_records.is_empty()
+            {
+                self.history_list_state.select(Some(0));
             }
-            // `/` to focus search bar from anywhere
-            KeyCode::Char('/') => {
-                self.search_focused = true;
-                return Action::None;
-            }
-            _ => {}
+            return Action::None;
+        }
+
+        // Focus search bar from anywhere
+        if self.keybindings.matches(&self.keybindings.search, &key) {
+            self.search_focused = true;
+            return Action::None;
         }
 
         // Handle sidebar input when focused
@@ -295,7 +305,7 @@ impl App {
             Screen::BatchSelect => self.handle_batch_input(key),
             Screen::Loading => {
                 // Allow quit during loading
-                if key.code == KeyCode::Char('q') || key.code == KeyCode::Esc {
+                if self.keybindings.matches(&self.keybindings.quit, &key) {
                     self.should_quit = true;
                     return Action::Quit;
                 }
@@ -336,91 +346,80 @@ impl App {
     }
 
     fn handle_sidebar_input(&mut self, key: KeyEvent) -> Action {
-        match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
-                let i = self.history_list_state.selected().unwrap_or(0);
-                if i > 0 {
-                    self.history_list_state.select(Some(i - 1));
+        if self.keybindings.matches(&self.keybindings.up, &key) {
+            let i = self.history_list_state.selected().unwrap_or(0);
+            if i > 0 {
+                self.history_list_state.select(Some(i - 1));
+            }
+            Action::None
+        } else if self.keybindings.matches(&self.keybindings.down, &key) {
+            let i = self.history_list_state.selected().unwrap_or(0);
+            if i < self.history_records.len().saturating_sub(1) {
+                self.history_list_state.select(Some(i + 1));
+            }
+            Action::None
+        } else if self.keybindings.matches(&self.keybindings.select, &key) {
+            if let Some(i) = self.history_list_state.selected() {
+                if i < self.history_records.len() {
+                    self.focus = Focus::Main;
+                    return Action::ContinueFromHistory(i);
                 }
-                Action::None
             }
-            KeyCode::Down | KeyCode::Char('j') => {
-                let i = self.history_list_state.selected().unwrap_or(0);
-                if i < self.history_records.len().saturating_sub(1) {
-                    self.history_list_state.select(Some(i + 1));
-                }
-                Action::None
-            }
-            KeyCode::Enter => {
-                if let Some(i) = self.history_list_state.selected() {
-                    if i < self.history_records.len() {
-                        self.focus = Focus::Main;
-                        return Action::ContinueFromHistory(i);
-                    }
-                }
-                Action::None
-            }
-            KeyCode::Char('q') | KeyCode::Esc => {
-                self.should_quit = true;
-                Action::Quit
-            }
-            _ => Action::None,
+            Action::None
+        } else if self.keybindings.matches(&self.keybindings.quit, &key) {
+            self.should_quit = true;
+            Action::Quit
+        } else {
+            Action::None
         }
     }
 
     fn handle_startup_input(&mut self, key: KeyEvent) -> Action {
-        match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
-                if self.history_records.is_empty() {
-                    let i = self.startup_list_state.selected().unwrap_or(0);
-                    if i > 0 {
-                        self.startup_list_state.select(Some(i - 1));
-                    }
-                } else {
-                    let i = self.history_list_state.selected().unwrap_or(0);
-                    if i > 0 {
-                        self.history_list_state.select(Some(i - 1));
-                    }
+        if self.keybindings.matches(&self.keybindings.up, &key) {
+            if self.history_records.is_empty() {
+                let i = self.startup_list_state.selected().unwrap_or(0);
+                if i > 0 {
+                    self.startup_list_state.select(Some(i - 1));
                 }
-                Action::None
-            }
-            KeyCode::Down | KeyCode::Char('j') => {
-                if self.history_records.is_empty() {
-                    let i = self.startup_list_state.selected().unwrap_or(0);
-                    if i < 1 {
-                        self.startup_list_state.select(Some(i + 1));
-                    }
-                } else {
-                    let i = self.history_list_state.selected().unwrap_or(0);
-                    if i < self.history_records.len().saturating_sub(1) {
-                        self.history_list_state.select(Some(i + 1));
-                    }
-                }
-                Action::None
-            }
-            KeyCode::Enter => {
-                if self.history_records.is_empty() {
-                    match self.startup_list_state.selected() {
-                        Some(0) => Action::NewSearch,
-                        _ => Action::NewSearch,
-                    }
-                } else {
-                    if let Some(i) = self.history_list_state.selected() {
-                        Action::ContinueFromHistory(i)
-                    } else {
-                        Action::NewSearch
-                    }
+            } else {
+                let i = self.history_list_state.selected().unwrap_or(0);
+                if i > 0 {
+                    self.history_list_state.select(Some(i - 1));
                 }
             }
-            KeyCode::Char('s') | KeyCode::Char('n') => {
-                self.screen = Screen::Search;
-                Action::None
+            Action::None
+        } else if self.keybindings.matches(&self.keybindings.down, &key) {
+            if self.history_records.is_empty() {
+                let i = self.startup_list_state.selected().unwrap_or(0);
+                if i < 1 {
+                    self.startup_list_state.select(Some(i + 1));
+                }
+            } else {
+                let i = self.history_list_state.selected().unwrap_or(0);
+                if i < self.history_records.len().saturating_sub(1) {
+                    self.history_list_state.select(Some(i + 1));
+                }
             }
-            KeyCode::Char('q') | KeyCode::Esc => {
-                self.should_quit = true;
-                Action::Quit
+            Action::None
+        } else if self.keybindings.matches(&self.keybindings.select, &key) {
+            if self.history_records.is_empty() {
+                match self.startup_list_state.selected() {
+                    Some(0) => Action::NewSearch,
+                    _ => Action::NewSearch,
+                }
+            } else if let Some(i) = self.history_list_state.selected() {
+                Action::ContinueFromHistory(i)
+            } else {
+                Action::NewSearch
             }
-            _ => Action::None,
+        } else if self.keybindings.matches(&self.keybindings.new_search, &key) {
+            self.screen = Screen::Search;
+            Action::None
+        } else if self.keybindings.matches(&self.keybindings.quit, &key) {
+            self.should_quit = true;
+            Action::Quit
+        } else {
+            Action::None
         }
     }
 
@@ -457,97 +456,85 @@ impl App {
     }
 
     fn handle_show_list_input(&mut self, key: KeyEvent) -> Action {
-        match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
-                let i = self.show_list_state.selected().unwrap_or(0);
-                if i > 0 {
-                    self.show_list_state.select(Some(i - 1));
-                }
+        if self.keybindings.matches(&self.keybindings.up, &key) {
+            let i = self.show_list_state.selected().unwrap_or(0);
+            if i > 0 {
+                self.show_list_state.select(Some(i - 1));
+            }
+            Action::None
+        } else if self.keybindings.matches(&self.keybindings.down, &key) {
+            let i = self.show_list_state.selected().unwrap_or(0);
+            if i < self.shows.len().saturating_sub(1) {
+                self.show_list_state.select(Some(i + 1));
+            }
+            Action::None
+        } else if self.keybindings.matches(&self.keybindings.select, &key) {
+            if let Some(i) = self.show_list_state.selected() {
+                Action::SelectShow(i)
+            } else {
                 Action::None
             }
-            KeyCode::Down | KeyCode::Char('j') => {
-                let i = self.show_list_state.selected().unwrap_or(0);
-                if i < self.shows.len().saturating_sub(1) {
-                    self.show_list_state.select(Some(i + 1));
-                }
-                Action::None
-            }
-            KeyCode::Enter => {
-                if let Some(i) = self.show_list_state.selected() {
-                    Action::SelectShow(i)
-                } else {
-                    Action::None
-                }
-            }
-            KeyCode::Char('s') | KeyCode::Char('/') => {
-                self.screen = Screen::Search;
-                Action::None
-            }
-            KeyCode::Char('q') | KeyCode::Esc => {
-                self.should_quit = true;
-                Action::Quit
-            }
-            _ => Action::None,
+        } else if self.keybindings.matches(&self.keybindings.search, &key) {
+            self.screen = Screen::Search;
+            Action::None
+        } else if self.keybindings.matches(&self.keybindings.quit, &key) {
+            self.should_quit = true;
+            Action::Quit
+        } else {
+            Action::None
         }
     }
 
     fn handle_episode_list_input(&mut self, key: KeyEvent) -> Action {
         let filtered_len = self.get_filtered_episodes().len();
 
-        match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
-                let i = self.episode_list_state.selected().unwrap_or(0);
-                if i > 0 {
-                    self.episode_list_state.select(Some(i - 1));
-                }
-                Action::None
+        if self.keybindings.matches(&self.keybindings.up, &key) {
+            let i = self.episode_list_state.selected().unwrap_or(0);
+            if i > 0 {
+                self.episode_list_state.select(Some(i - 1));
             }
-            KeyCode::Down | KeyCode::Char('j') => {
-                let i = self.episode_list_state.selected().unwrap_or(0);
-                if i < filtered_len.saturating_sub(1) {
-                    self.episode_list_state.select(Some(i + 1));
-                }
-                Action::None
+            Action::None
+        } else if self.keybindings.matches(&self.keybindings.down, &key) {
+            let i = self.episode_list_state.selected().unwrap_or(0);
+            if i < filtered_len.saturating_sub(1) {
+                self.episode_list_state.select(Some(i + 1));
             }
-            KeyCode::Enter => {
-                if let Some(i) = self.episode_list_state.selected() {
-                    // Get the actual episode from filtered list
-                    let filtered = self.get_filtered_episodes();
-                    if i < filtered.len() {
-                        let episode_num = filtered[i].number;
-                        // Find the index in the original list
-                        if let Some(original_idx) =
-                            self.episodes.iter().position(|e| e.number == episode_num)
-                        {
-                            return Action::SelectEpisode(original_idx);
-                        }
+            Action::None
+        } else if self.keybindings.matches(&self.keybindings.select, &key) {
+            if let Some(i) = self.episode_list_state.selected() {
+                // Get the actual episode from filtered list
+                let filtered = self.get_filtered_episodes();
+                if i < filtered.len() {
+                    let episode_num = filtered[i].number;
+                    // Find the index in the original list
+                    if let Some(original_idx) =
+                        self.episodes.iter().position(|e| e.number == episode_num)
+                    {
+                        return Action::SelectEpisode(original_idx);
                     }
                 }
-                Action::None
             }
-            KeyCode::Char('f') => {
-                self.episode_filter_active = true;
-                Action::None
+            Action::None
+        } else if self.keybindings.matches(&self.keybindings.filter, &key) {
+            self.episode_filter_active = true;
+            Action::None
+        } else if self.keybindings.matches(&self.keybindings.search, &key) {
+            self.screen = Screen::Search;
+            Action::None
+        } else if self.keybindings.matches(&self.keybindings.back, &key) {
+            if !self.episode_filter.is_empty() {
+                // Clear filter first
+                self.episode_filter.clear();
+                self.episode_list_state.select(Some(0));
+            } else {
+                self.screen = Screen::ShowList;
             }
-            KeyCode::Char('s') => {
-                self.screen = Screen::Search;
-                Action::None
-            }
-            KeyCode::Backspace | KeyCode::Esc => {
-                if !self.episode_filter.is_empty() {
-                    // Clear filter first
-                    self.episode_filter.clear();
-                    self.episode_list_state.select(Some(0));
-                } else {
-                    self.screen = Screen::ShowList;
-                }
-                Action::None
-            }
-            KeyCode::Char('q') => {
-                self.should_quit = true;
-                Action::Quit
-            }
-            _ => Action::None,
+            Action::None
+        } else if self.keybindings.matches(&self.keybindings.quit, &key) {
+            self.should_quit = true;
+            Action::Quit
+        } else {
+            Action::None
         }
     }
 
@@ -577,132 +564,123 @@ impl App {
     }
 
     fn handle_quality_input(&mut self, key: KeyEvent) -> Action {
-        match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
-                let i = self.quality_list_state.selected().unwrap_or(0);
-                if i > 0 {
-                    self.quality_list_state.select(Some(i - 1));
-                }
+        if self.keybindings.matches(&self.keybindings.up, &key) {
+            let i = self.quality_list_state.selected().unwrap_or(0);
+            if i > 0 {
+                self.quality_list_state.select(Some(i - 1));
+            }
+            Action::None
+        } else if self.keybindings.matches(&self.keybindings.down, &key) {
+            let i = self.quality_list_state.selected().unwrap_or(0);
+            if i < self.sources.len().saturating_sub(1) {
+                self.quality_list_state.select(Some(i + 1));
+            }
+            Action::None
+        } else if self.keybindings.matches(&self.keybindings.select, &key) {
+            if let Some(i) = self.quality_list_state.selected() {
+                Action::SelectQuality(i)
+            } else {
                 Action::None
             }
-            KeyCode::Down | KeyCode::Char('j') => {
-                let i = self.quality_list_state.selected().unwrap_or(0);
-                if i < self.sources.len().saturating_sub(1) {
-                    self.quality_list_state.select(Some(i + 1));
-                }
-                Action::None
-            }
-            KeyCode::Enter => {
-                if let Some(i) = self.quality_list_state.selected() {
-                    Action::SelectQuality(i)
-                } else {
-                    Action::None
-                }
-            }
-            KeyCode::Backspace | KeyCode::Esc => {
-                self.screen = Screen::EpisodeList;
-                Action::None
-            }
-            KeyCode::Char('q') => {
-                self.should_quit = true;
-                Action::Quit
-            }
-            _ => Action::None,
+        } else if self.keybindings.matches(&self.keybindings.back, &key) {
+            self.screen = Screen::EpisodeList;
+            Action::None
+        } else if self.keybindings.matches(&self.keybindings.quit, &key) {
+            self.should_quit = true;
+            Action::Quit
+        } else {
+            Action::None
         }
     }
 
     fn handle_playback_input(&mut self, key: KeyEvent) -> Action {
         let options = self.get_playback_options();
-        match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
-                let i = self.playback_list_state.selected().unwrap_or(0);
-                if i > 0 {
-                    self.playback_list_state.select(Some(i - 1));
-                }
-                Action::None
+
+        if self.keybindings.matches(&self.keybindings.up, &key) {
+            let i = self.playback_list_state.selected().unwrap_or(0);
+            if i > 0 {
+                self.playback_list_state.select(Some(i - 1));
             }
-            KeyCode::Down | KeyCode::Char('j') => {
-                let i = self.playback_list_state.selected().unwrap_or(0);
-                if i < options.len().saturating_sub(1) {
-                    self.playback_list_state.select(Some(i + 1));
-                }
-                Action::None
+            Action::None
+        } else if self.keybindings.matches(&self.keybindings.down, &key) {
+            let i = self.playback_list_state.selected().unwrap_or(0);
+            if i < options.len().saturating_sub(1) {
+                self.playback_list_state.select(Some(i + 1));
             }
-            KeyCode::Enter => {
-                if let Some(i) = self.playback_list_state.selected() {
-                    if i < options.len() {
-                        match options[i].as_str() {
-                            "Next episode" => Action::Next,
-                            "Replay" => Action::Replay,
-                            "Previous episode" => Action::Previous,
-                            "Select episode" => Action::BackToEpisodes,
-                            "Quit" => {
-                                self.should_quit = true;
-                                Action::Quit
-                            }
-                            _ => Action::None,
+            Action::None
+        } else if self.keybindings.matches(&self.keybindings.select, &key) {
+            if let Some(i) = self.playback_list_state.selected() {
+                if i < options.len() {
+                    match options[i].as_str() {
+                        "Next episode" => Action::Next,
+                        "Replay" => Action::Replay,
+                        "Previous episode" => Action::Previous,
+                        "Select episode" => Action::BackToEpisodes,
+                        "Quit" => {
+                            self.should_quit = true;
+                            Action::Quit
                         }
-                    } else {
-                        Action::None
+                        _ => Action::None,
                     }
                 } else {
                     Action::None
                 }
+            } else {
+                Action::None
             }
-            KeyCode::Char('n') => Action::Next,
-            KeyCode::Char('p') => Action::Previous,
-            KeyCode::Char('r') => Action::Replay,
-            KeyCode::Char('e') => Action::BackToEpisodes,
-            KeyCode::Char('q') | KeyCode::Esc => {
-                self.should_quit = true;
-                Action::Quit
-            }
-            _ => Action::None,
+        } else if self.keybindings.matches(&self.keybindings.next, &key) {
+            Action::Next
+        } else if self.keybindings.matches(&self.keybindings.previous, &key) {
+            Action::Previous
+        } else if self.keybindings.matches(&self.keybindings.replay, &key) {
+            Action::Replay
+        } else if self.keybindings.matches(&self.keybindings.episodes, &key) {
+            Action::BackToEpisodes
+        } else if self.keybindings.matches(&self.keybindings.quit, &key) {
+            self.should_quit = true;
+            Action::Quit
+        } else {
+            Action::None
         }
     }
 
     fn handle_batch_input(&mut self, key: KeyEvent) -> Action {
-        match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
-                let i = self.batch_list_state.selected().unwrap_or(0);
-                if i > 0 {
-                    self.batch_list_state.select(Some(i - 1));
+        if self.keybindings.matches(&self.keybindings.up, &key) {
+            let i = self.batch_list_state.selected().unwrap_or(0);
+            if i > 0 {
+                self.batch_list_state.select(Some(i - 1));
+            }
+            Action::None
+        } else if self.keybindings.matches(&self.keybindings.down, &key) {
+            let i = self.batch_list_state.selected().unwrap_or(0);
+            if i < 2 {
+                self.batch_list_state.select(Some(i + 1));
+            }
+            Action::None
+        } else if self.keybindings.matches(&self.keybindings.select, &key) {
+            match self.batch_list_state.selected() {
+                Some(0) => {
+                    // Show confirmation for all episodes
+                    self.pending_batch_action = Some(Action::BatchAll);
+                    self.batch_confirm_mode = true;
+                    Action::None
                 }
-                Action::None
-            }
-            KeyCode::Down | KeyCode::Char('j') => {
-                let i = self.batch_list_state.selected().unwrap_or(0);
-                if i < 2 {
-                    self.batch_list_state.select(Some(i + 1));
+                Some(1) => {
+                    self.range_input_mode = true;
+                    self.range_input.clear();
+                    Action::None
                 }
-                Action::None
+                Some(2) => Action::BatchSingle,
+                _ => Action::None,
             }
-            KeyCode::Enter => {
-                match self.batch_list_state.selected() {
-                    Some(0) => {
-                        // Show confirmation for all episodes
-                        self.pending_batch_action = Some(Action::BatchAll);
-                        self.batch_confirm_mode = true;
-                        Action::None
-                    }
-                    Some(1) => {
-                        self.range_input_mode = true;
-                        self.range_input.clear();
-                        Action::None
-                    }
-                    Some(2) => Action::BatchSingle,
-                    _ => Action::None,
-                }
-            }
-            KeyCode::Backspace | KeyCode::Esc => {
-                self.screen = Screen::EpisodeList;
-                Action::None
-            }
-            KeyCode::Char('q') => {
-                self.should_quit = true;
-                Action::Quit
-            }
-            _ => Action::None,
+        } else if self.keybindings.matches(&self.keybindings.back, &key) {
+            self.screen = Screen::EpisodeList;
+            Action::None
+        } else if self.keybindings.matches(&self.keybindings.quit, &key) {
+            self.should_quit = true;
+            Action::Quit
+        } else {
+            Action::None
         }
     }
 
