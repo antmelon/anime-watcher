@@ -104,6 +104,9 @@ download_dir = "~/Downloads/anime"
 # Additional arguments to pass to the video player
 # player_args = ["--fullscreen", "--volume=80"]
 
+# Log verbosity: 0=error, 1=warn, 2=info, 3=debug, 4=trace
+# log_level = 1
+
 # Custom keybindings (all optional, shown with defaults)
 # [keybindings]
 # up = ["k", "Up"]
@@ -220,7 +223,7 @@ cargo test
 - [ ] Themes/colors for terminal output
 
 ### Technical Debt
-- [ ] Remove unused `download_dir` and `log` CLI arguments or implement them
+- [x] Remove unused `download_dir` and `log` CLI arguments or implement them
 - [x] Add integration tests with mock API responses
 - [x] Improve error messages with more context
 - [x] Add CI/CD pipeline

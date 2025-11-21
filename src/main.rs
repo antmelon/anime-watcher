@@ -217,8 +217,19 @@ fn restore_terminal() -> io::Result<()> {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
+    // Load config first (before logging, so we can use config log_level)
+    let config = Config::load().unwrap_or_default();
+
+    // Merge CLI log with config log_level
+    let log_level_value = if args.log == 1 {
+        // CLI default, use config value
+        config.log_level
+    } else {
+        args.log
+    };
+
     // Initialize logging
-    let log_level = match args.log {
+    let log_level = match log_level_value {
         0 => log::LevelFilter::Error,
         1 => log::LevelFilter::Warn,
         2 => log::LevelFilter::Info,
@@ -233,12 +244,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     debug!("Log level set to {:?}", log_level);
-
-    // Load config
-    let config = Config::load().unwrap_or_else(|e| {
-        warn!("Failed to load config: {}. Using defaults.", e);
-        Config::new()
-    });
 
     // Merge config with CLI args
     let mode_str = if args.mode == "sub" {

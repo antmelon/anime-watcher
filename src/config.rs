@@ -272,6 +272,10 @@ pub struct Config {
     #[serde(default)]
     pub player_args: Vec<String>,
 
+    /// Log verbosity level: 0=error, 1=warn, 2=info, 3=debug, 4=trace
+    #[serde(default = "default_log_level")]
+    pub log_level: u8,
+
     /// Custom keybindings
     #[serde(default)]
     pub keybindings: Keybindings,
@@ -298,6 +302,11 @@ fn default_download_dir() -> String {
     ".".to_string()
 }
 
+/// Returns the default log level (warn).
+fn default_log_level() -> u8 {
+    1
+}
+
 impl Config {
     /// Create a new config with default values.
     pub fn new() -> Self {
@@ -307,6 +316,7 @@ impl Config {
             download_dir: default_download_dir(),
             player: None,
             player_args: Vec::new(),
+            log_level: default_log_level(),
             keybindings: Keybindings::default(),
         }
     }
@@ -393,6 +403,7 @@ mod tests {
             download_dir: "/tmp".to_string(),
             player: Some("vlc".to_string()),
             player_args: vec!["--fullscreen".to_string()],
+            log_level: 2,
             keybindings: Keybindings::default(),
         };
 
