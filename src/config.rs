@@ -4,6 +4,7 @@
 //! from a TOML configuration file.
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use ratatui::style::Color;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io;
@@ -249,6 +250,235 @@ fn default_new_search() -> Vec<KeyBinding> {
     vec![KeyBinding("s".to_string()), KeyBinding("n".to_string())]
 }
 
+/// Color scheme configuration for the TUI.
+///
+/// Colors can be specified as:
+/// - Named colors: "Black", "Red", "Green", "Yellow", "Blue", "Magenta", "Cyan", "Gray", "White"
+/// - Dark variants: "DarkGray", "LightRed", "LightGreen", "LightYellow", "LightBlue", "LightMagenta", "LightCyan"
+/// - RGB hex: "#ff0000" or "#f00"
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ColorScheme {
+    /// Border color when focused
+    #[serde(default = "default_border_focused")]
+    pub border_focused: String,
+    /// Border color when unfocused
+    #[serde(default = "default_border_unfocused")]
+    pub border_unfocused: String,
+    /// Title and highlight color
+    #[serde(default = "default_highlight")]
+    pub highlight: String,
+    /// Selected item background
+    #[serde(default = "default_selection_bg")]
+    pub selection_bg: String,
+    /// Normal text color
+    #[serde(default = "default_text")]
+    pub text: String,
+    /// Dimmed/inactive text color
+    #[serde(default = "default_text_dim")]
+    pub text_dim: String,
+    /// Error message color
+    #[serde(default = "default_error")]
+    pub error: String,
+    /// Status message color
+    #[serde(default = "default_status")]
+    pub status: String,
+    /// Mode indicator color
+    #[serde(default = "default_mode_color")]
+    pub mode_indicator: String,
+    /// Streaming mode indicator
+    #[serde(default = "default_streaming")]
+    pub streaming: String,
+    /// Download mode indicator
+    #[serde(default = "default_download_color")]
+    pub download: String,
+}
+
+impl Default for ColorScheme {
+    fn default() -> Self {
+        Self {
+            border_focused: default_border_focused(),
+            border_unfocused: default_border_unfocused(),
+            highlight: default_highlight(),
+            selection_bg: default_selection_bg(),
+            text: default_text(),
+            text_dim: default_text_dim(),
+            error: default_error(),
+            status: default_status(),
+            mode_indicator: default_mode_color(),
+            streaming: default_streaming(),
+            download: default_download_color(),
+        }
+    }
+}
+
+impl ColorScheme {
+    /// Parse a color string into a ratatui Color.
+    ///
+    /// Supports named colors and hex RGB values.
+    pub fn parse_color(s: &str) -> Color {
+        match s.to_lowercase().as_str() {
+            "black" => Color::Black,
+            "red" => Color::Red,
+            "green" => Color::Green,
+            "yellow" => Color::Yellow,
+            "blue" => Color::Blue,
+            "magenta" => Color::Magenta,
+            "cyan" => Color::Cyan,
+            "gray" | "grey" => Color::Gray,
+            "darkgray" | "darkgrey" => Color::DarkGray,
+            "lightred" => Color::LightRed,
+            "lightgreen" => Color::LightGreen,
+            "lightyellow" => Color::LightYellow,
+            "lightblue" => Color::LightBlue,
+            "lightmagenta" => Color::LightMagenta,
+            "lightcyan" => Color::LightCyan,
+            "white" => Color::White,
+            hex if hex.starts_with('#') => {
+                if let Ok(rgb) = Self::parse_hex(hex) {
+                    Color::Rgb(rgb.0, rgb.1, rgb.2)
+                } else {
+                    Color::White
+                }
+            }
+            _ => Color::White,
+        }
+    }
+
+    /// Parse a hex color string to RGB values.
+    ///
+    /// Accepts strings with or without a leading '#'.
+    fn parse_hex(hex: &str) -> Result<(u8, u8, u8), ()> {
+        let hex = hex.strip_prefix('#').unwrap_or(hex);
+        match hex.len() {
+            3 => {
+                let r = u8::from_str_radix(&hex[0..1], 16).map_err(|_| ())? * 17;
+                let g = u8::from_str_radix(&hex[1..2], 16).map_err(|_| ())? * 17;
+                let b = u8::from_str_radix(&hex[2..3], 16).map_err(|_| ())? * 17;
+                Ok((r, g, b))
+            }
+            6 => {
+                let r = u8::from_str_radix(&hex[0..2], 16).map_err(|_| ())?;
+                let g = u8::from_str_radix(&hex[2..4], 16).map_err(|_| ())?;
+                let b = u8::from_str_radix(&hex[4..6], 16).map_err(|_| ())?;
+                Ok((r, g, b))
+            }
+            _ => Err(()),
+        }
+    }
+
+    /// Get the border_focused color as a ratatui Color.
+    pub fn border_focused(&self) -> Color {
+        Self::parse_color(&self.border_focused)
+    }
+
+    /// Get the border_unfocused color as a ratatui Color.
+    pub fn border_unfocused(&self) -> Color {
+        Self::parse_color(&self.border_unfocused)
+    }
+
+    /// Get the highlight color as a ratatui Color.
+    pub fn highlight(&self) -> Color {
+        Self::parse_color(&self.highlight)
+    }
+
+    /// Get the selection_bg color as a ratatui Color.
+    pub fn selection_bg(&self) -> Color {
+        Self::parse_color(&self.selection_bg)
+    }
+
+    /// Get the text color as a ratatui Color.
+    pub fn text(&self) -> Color {
+        Self::parse_color(&self.text)
+    }
+
+    /// Get the text_dim color as a ratatui Color.
+    pub fn text_dim(&self) -> Color {
+        Self::parse_color(&self.text_dim)
+    }
+
+    /// Get the error color as a ratatui Color.
+    pub fn error(&self) -> Color {
+        Self::parse_color(&self.error)
+    }
+
+    /// Get the status color as a ratatui Color.
+    pub fn status(&self) -> Color {
+        Self::parse_color(&self.status)
+    }
+
+    /// Get the mode_indicator color as a ratatui Color.
+    pub fn mode_indicator(&self) -> Color {
+        Self::parse_color(&self.mode_indicator)
+    }
+
+    /// Get the streaming color as a ratatui Color.
+    pub fn streaming(&self) -> Color {
+        Self::parse_color(&self.streaming)
+    }
+
+    /// Get the download color as a ratatui Color.
+    pub fn download(&self) -> Color {
+        Self::parse_color(&self.download)
+    }
+}
+
+// Default color functions
+
+/// Returns the default focused border color.
+fn default_border_focused() -> String {
+    "Cyan".to_string()
+}
+
+/// Returns the default unfocused border color.
+fn default_border_unfocused() -> String {
+    "DarkGray".to_string()
+}
+
+/// Returns the default highlight color.
+fn default_highlight() -> String {
+    "Yellow".to_string()
+}
+
+/// Returns the default selection background color.
+fn default_selection_bg() -> String {
+    "DarkGray".to_string()
+}
+
+/// Returns the default text color.
+fn default_text() -> String {
+    "White".to_string()
+}
+
+/// Returns the default dimmed text color.
+fn default_text_dim() -> String {
+    "DarkGray".to_string()
+}
+
+/// Returns the default error color.
+fn default_error() -> String {
+    "Red".to_string()
+}
+
+/// Returns the default status message color.
+fn default_status() -> String {
+    "Yellow".to_string()
+}
+
+/// Returns the default mode indicator color.
+fn default_mode_color() -> String {
+    "Magenta".to_string()
+}
+
+/// Returns the default streaming indicator color.
+fn default_streaming() -> String {
+    "Green".to_string()
+}
+
+/// Returns the default download indicator color.
+fn default_download_color() -> String {
+    "Red".to_string()
+}
+
 /// User configuration settings.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
@@ -279,6 +509,10 @@ pub struct Config {
     /// Custom keybindings
     #[serde(default)]
     pub keybindings: Keybindings,
+
+    /// Color scheme for the TUI
+    #[serde(default)]
+    pub colors: ColorScheme,
 }
 
 impl Default for Config {
@@ -318,6 +552,7 @@ impl Config {
             player_args: Vec::new(),
             log_level: default_log_level(),
             keybindings: Keybindings::default(),
+            colors: ColorScheme::default(),
         }
     }
 
@@ -350,9 +585,10 @@ impl Config {
         Ok(config)
     }
 
-    /// Save config to disk.
+    /// Save config to disk (reserved for future use).
     ///
     /// Creates the config directory if it doesn't exist.
+    #[allow(dead_code)]
     pub fn save(&self) -> Result<(), Box<dyn std::error::Error>> {
         let path = Self::get_config_path()?;
 
@@ -366,9 +602,10 @@ impl Config {
         Ok(())
     }
 
-    /// Create a default config file if one doesn't exist.
+    /// Create a default config file if one doesn't exist (reserved for future use).
     ///
     /// Returns the path to the config file.
+    #[allow(dead_code)]
     pub fn create_default_if_missing() -> Result<PathBuf, Box<dyn std::error::Error>> {
         let path = Self::get_config_path()?;
 
@@ -405,6 +642,7 @@ mod tests {
             player_args: vec!["--fullscreen".to_string()],
             log_level: 2,
             keybindings: Keybindings::default(),
+            colors: ColorScheme::default(),
         };
 
         let toml_str = toml::to_string(&config).unwrap();

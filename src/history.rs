@@ -124,12 +124,14 @@ impl WatchHistory {
         records
     }
 
-    /// Get the watch record for a specific show.
+    /// Get the watch record for a specific show (reserved for future use).
+    #[allow(dead_code)]
     pub fn get_record(&self, show_id: &str) -> Option<&WatchRecord> {
         self.records.get(show_id)
     }
 
-    /// Check if there's any watch history.
+    /// Check if there's any watch history (reserved for future use).
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.records.is_empty()
     }

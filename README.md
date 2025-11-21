@@ -157,6 +157,45 @@ player = "celluloid"
 player_args = []
 ```
 
+#### Color Scheme
+
+Customize the TUI colors with the `[colors]` section. Colors can be specified as:
+- Named colors: `"black"`, `"red"`, `"green"`, `"yellow"`, `"blue"`, `"magenta"`, `"cyan"`, `"white"`, `"gray"`/`"darkgray"`
+- Hex RGB: `"#ff0000"` or `"#f00"`
+
+```toml
+# Custom color scheme (all optional, shown with defaults)
+# [colors]
+# border_focused = "cyan"
+# border_unfocused = "gray"
+# highlight = "yellow"
+# selection_bg = "darkgray"
+# text = "white"
+# text_dim = "gray"
+# error = "red"
+# status = "yellow"
+# mode_indicator = "magenta"
+# streaming = "green"
+# download = "blue"
+```
+
+Example dark theme:
+
+```toml
+[colors]
+border_focused = "#00ffff"
+border_unfocused = "#444444"
+highlight = "#ffff00"
+selection_bg = "#333333"
+text = "#ffffff"
+text_dim = "#888888"
+error = "#ff4444"
+status = "#ffaa00"
+mode_indicator = "#ff00ff"
+streaming = "#44ff44"
+download = "#4488ff"
+```
+
 CLI arguments override config file settings.
 
 ### Controls
@@ -220,7 +259,7 @@ cargo test
 - [ ] Support for manga reading
 - [x] Batch downloading
 - [x] Custom keybindings
-- [ ] Themes/colors for terminal output
+- [x] Themes/colors for terminal output
 
 ### Technical Debt
 - [x] Remove unused `download_dir` and `log` CLI arguments or implement them

@@ -1,6 +1,6 @@
 //! Application state management and input handling.
 
-use crate::config::Keybindings;
+use crate::config::{ColorScheme, Keybindings};
 use crate::types::{Episode, Show, StreamSource};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::widgets::ListState;
@@ -53,7 +53,8 @@ pub struct App {
     pub mode: String,
     /// Current quality preference
     pub quality: String,
-    /// Status message to display
+    /// Status message to display (reserved for future use)
+    #[allow(dead_code)]
     pub status_message: Option<String>,
     /// Error message to display
     pub error_message: Option<String>,
@@ -75,6 +76,18 @@ pub struct App {
     pub pending_batch_action: Option<Action>,
     /// Custom keybindings
     pub keybindings: Keybindings,
+    /// Color scheme
+    pub colors: ColorScheme,
+    /// Whether download modal is shown
+    pub show_download_modal: bool,
+    /// Current download index (1-based)
+    pub download_current: usize,
+    /// Total downloads in batch
+    pub download_total: usize,
+    /// Current download message
+    pub download_message: String,
+    /// Download activity log
+    pub download_log: Vec<String>,
 }
 
 impl App {
@@ -84,6 +97,7 @@ impl App {
         quality: String,
         download_mode: bool,
         keybindings: Keybindings,
+        colors: ColorScheme,
     ) -> Self {
         let mut startup_state = ListState::default();
         startup_state.select(Some(0));
@@ -122,7 +136,59 @@ impl App {
             batch_confirm_mode: false,
             pending_batch_action: None,
             keybindings,
+            colors,
+            show_download_modal: false,
+            download_current: 0,
+            download_total: 0,
+            download_message: String::new(),
+            download_log: Vec::new(),
         }
+    }
+
+    /// Initialize and show the download modal for batch downloads.
+    ///
+    /// This resets all download state and displays the modal overlay.
+    ///
+    /// # Arguments
+    ///
+    /// * `total` - Total number of episodes to download
+    pub fn start_download_modal(&mut self, total: usize) {
+        self.show_download_modal = true;
+        self.download_current = 0;
+        self.download_total = total;
+        self.download_message = String::new();
+        self.download_log.clear();
+    }
+
+    /// Update the current download progress displayed in the modal.
+    ///
+    /// # Arguments
+    ///
+    /// * `current` - Current episode index (1-based)
+    /// * `message` - Status message to display (e.g., "Downloading Episode 5...")
+    pub fn update_download_progress(&mut self, current: usize, message: &str) {
+        self.download_current = current;
+        self.download_message = message.to_string();
+    }
+
+    /// Add an entry to the download activity log.
+    ///
+    /// The log is limited to the 10 most recent entries to prevent overflow.
+    ///
+    /// # Arguments
+    ///
+    /// * `entry` - Log entry to add (e.g., "✓ Ep 5 complete")
+    pub fn add_download_log(&mut self, entry: &str) {
+        self.download_log.push(entry.to_string());
+        // Keep only last 10 entries to avoid overflow
+        if self.download_log.len() > 10 {
+            self.download_log.remove(0);
+        }
+    }
+
+    /// Close the download modal and return to normal view.
+    pub fn close_download_modal(&mut self) {
+        self.show_download_modal = false;
     }
 
     /// Get filtered episodes based on current filter.
@@ -171,7 +237,8 @@ impl App {
         self.screen = Screen::EpisodeList;
     }
 
-    /// Set sources and switch to quality select screen.
+    /// Set sources and switch to quality select screen (reserved for future use).
+    #[allow(dead_code)]
     pub fn set_sources(&mut self, sources: Vec<StreamSource>) {
         self.sources = sources;
         self.quality_list_state.select(Some(0));
@@ -209,7 +276,8 @@ impl App {
         self.error_message = None;
     }
 
-    /// Set status message.
+    /// Set status message (reserved for future use).
+    #[allow(dead_code)]
     pub fn set_status(&mut self, message: &str) {
         self.status_message = Some(message.to_string());
     }

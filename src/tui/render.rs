@@ -2,7 +2,7 @@
 
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Wrap},
     Frame,
@@ -61,7 +61,7 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
 
     // Draw error popup if there's an error
     if let Some(error) = &app.error_message {
-        draw_error_popup(frame, error);
+        draw_error_popup(frame, app, error);
     }
 
     // Draw range input popup if in range input mode
@@ -78,20 +78,25 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     if app.show_help {
         draw_help_modal(frame, app);
     }
+
+    // Draw download modal if active
+    if app.show_download_modal {
+        draw_download_modal(frame, app);
+    }
 }
 
 fn draw_header(frame: &mut Frame, app: &App, area: Rect) {
     let mode_style = if app.mode == "dub" {
-        Style::default().fg(Color::Yellow)
+        Style::default().fg(app.colors.highlight())
     } else {
-        Style::default().fg(Color::Cyan)
+        Style::default().fg(app.colors.border_focused())
     };
 
     let header = Paragraph::new(Line::from(vec![
         Span::styled(
             "anime-watcher",
             Style::default()
-                .fg(Color::Magenta)
+                .fg(app.colors.mode_indicator())
                 .add_modifier(Modifier::BOLD),
         ),
         Span::raw("  "),
@@ -99,10 +104,10 @@ fn draw_header(frame: &mut Frame, app: &App, area: Rect) {
         Span::raw("  "),
         Span::styled(
             format!("[{}]", app.quality),
-            Style::default().fg(Color::Green),
+            Style::default().fg(app.colors.streaming()),
         ),
         if app.download_mode {
-            Span::styled("  [download]", Style::default().fg(Color::Red))
+            Span::styled("  [download]", Style::default().fg(app.colors.download()))
         } else {
             Span::raw("")
         },
@@ -114,9 +119,9 @@ fn draw_header(frame: &mut Frame, app: &App, area: Rect) {
 
 fn draw_search_bar(frame: &mut Frame, app: &App, area: Rect) {
     let border_style = if app.search_focused {
-        Style::default().fg(Color::Cyan)
+        Style::default().fg(app.colors.border_focused())
     } else {
-        Style::default().fg(Color::DarkGray)
+        Style::default().fg(app.colors.border_unfocused())
     };
 
     let search_text = if app.search_input.is_empty() && !app.search_focused {
@@ -127,9 +132,9 @@ fn draw_search_bar(frame: &mut Frame, app: &App, area: Rect) {
 
     let search = Paragraph::new(search_text)
         .style(if app.search_focused {
-            Style::default().fg(Color::White)
+            Style::default().fg(app.colors.text())
         } else {
-            Style::default().fg(Color::DarkGray)
+            Style::default().fg(app.colors.text_dim())
         })
         .block(
             Block::default()
@@ -148,14 +153,14 @@ fn draw_search_bar(frame: &mut Frame, app: &App, area: Rect) {
 
 fn draw_sidebar(frame: &mut Frame, app: &mut App, area: Rect) {
     let border_style = if app.focus == Focus::Sidebar {
-        Style::default().fg(Color::Cyan)
+        Style::default().fg(app.colors.border_focused())
     } else {
-        Style::default().fg(Color::DarkGray)
+        Style::default().fg(app.colors.border_unfocused())
     };
 
     if app.history_records.is_empty() {
         let empty = Paragraph::new("No watch history")
-            .style(Style::default().fg(Color::DarkGray))
+            .style(Style::default().fg(app.colors.text_dim()))
             .block(
                 Block::default()
                     .borders(Borders::ALL)
@@ -187,7 +192,7 @@ fn draw_sidebar(frame: &mut Frame, app: &mut App, area: Rect) {
             )
             .highlight_style(
                 Style::default()
-                    .bg(Color::DarkGray)
+                    .bg(app.colors.selection_bg())
                     .add_modifier(Modifier::BOLD),
             )
             .highlight_symbol("> ");
@@ -244,7 +249,7 @@ fn draw_show_list_main(frame: &mut Frame, app: &mut App, area: Rect) {
         )
         .highlight_style(
             Style::default()
-                .bg(Color::DarkGray)
+                .bg(app.colors.selection_bg())
                 .add_modifier(Modifier::BOLD),
         )
         .highlight_symbol("> ");
@@ -298,9 +303,9 @@ fn draw_episode_list_main(frame: &mut Frame, app: &mut App, area: Rect) {
     // Draw filter input if active or has content
     if app.episode_filter_active || !app.episode_filter.is_empty() {
         let filter_style = if app.episode_filter_active {
-            Style::default().fg(Color::Yellow)
+            Style::default().fg(app.colors.highlight())
         } else {
-            Style::default().fg(Color::DarkGray)
+            Style::default().fg(app.colors.text_dim())
         };
 
         let filter_title = if app.episode_filter.is_empty() {
@@ -347,7 +352,7 @@ fn draw_episode_list_main(frame: &mut Frame, app: &mut App, area: Rect) {
         .block(Block::default().borders(Borders::ALL).title(title))
         .highlight_style(
             Style::default()
-                .bg(Color::DarkGray)
+                .bg(app.colors.selection_bg())
                 .add_modifier(Modifier::BOLD),
         )
         .highlight_symbol("> ");
@@ -396,7 +401,7 @@ fn draw_footer(frame: &mut Frame, app: &App, area: Rect) {
     };
 
     let footer = Paragraph::new(help_text)
-        .style(Style::default().fg(Color::DarkGray))
+        .style(Style::default().fg(app.colors.text_dim()))
         .block(Block::default().borders(Borders::ALL));
 
     frame.render_widget(footer, area);
@@ -404,7 +409,7 @@ fn draw_footer(frame: &mut Frame, app: &App, area: Rect) {
 
 fn draw_loading(frame: &mut Frame, app: &App, area: Rect) {
     let loading = Paragraph::new(app.loading_message.as_str())
-        .style(Style::default().fg(Color::Yellow))
+        .style(Style::default().fg(app.colors.status()))
         .block(Block::default().borders(Borders::ALL).title("Loading"));
 
     frame.render_widget(loading, area);
@@ -425,7 +430,7 @@ fn draw_quality_select(frame: &mut Frame, app: &mut App, area: Rect) {
         )
         .highlight_style(
             Style::default()
-                .bg(Color::DarkGray)
+                .bg(app.colors.selection_bg())
                 .add_modifier(Modifier::BOLD),
         )
         .highlight_symbol("> ");
@@ -447,7 +452,7 @@ fn draw_playback(frame: &mut Frame, app: &mut App, area: Rect) {
         .block(Block::default().borders(Borders::ALL).title(title))
         .highlight_style(
             Style::default()
-                .bg(Color::DarkGray)
+                .bg(app.colors.selection_bg())
                 .add_modifier(Modifier::BOLD),
         )
         .highlight_symbol("> ");
@@ -470,7 +475,7 @@ fn draw_batch_select(frame: &mut Frame, app: &mut App, area: Rect) {
         )
         .highlight_style(
             Style::default()
-                .bg(Color::DarkGray)
+                .bg(app.colors.selection_bg())
                 .add_modifier(Modifier::BOLD),
         )
         .highlight_symbol("> ");
@@ -478,17 +483,17 @@ fn draw_batch_select(frame: &mut Frame, app: &mut App, area: Rect) {
     frame.render_stateful_widget(list, area, &mut app.batch_list_state);
 }
 
-fn draw_error_popup(frame: &mut Frame, error: &str) {
+fn draw_error_popup(frame: &mut Frame, app: &App, error: &str) {
     let area = centered_rect(60, 20, frame.area());
     frame.render_widget(Clear, area);
 
     let popup = Paragraph::new(error)
-        .style(Style::default().fg(Color::Red))
+        .style(Style::default().fg(app.colors.error()))
         .block(
             Block::default()
                 .borders(Borders::ALL)
                 .title("Error")
-                .border_style(Style::default().fg(Color::Red)),
+                .border_style(Style::default().fg(app.colors.error())),
         )
         .wrap(Wrap { trim: true });
 
@@ -523,12 +528,64 @@ fn draw_batch_confirm_popup(frame: &mut Frame, app: &App) {
     );
 
     let popup = Paragraph::new(message)
-        .style(Style::default().fg(Color::Yellow))
+        .style(Style::default().fg(app.colors.status()))
         .block(
             Block::default()
                 .borders(Borders::ALL)
                 .title("Confirm Download")
-                .border_style(Style::default().fg(Color::Yellow)),
+                .border_style(Style::default().fg(app.colors.status())),
+        )
+        .wrap(Wrap { trim: true });
+
+    frame.render_widget(popup, area);
+}
+
+/// Draw the download progress modal overlay.
+///
+/// Displays a centered modal showing:
+/// - Current progress (e.g., "[3/10]")
+/// - Current action message
+/// - Activity log of recent download results
+fn draw_download_modal(frame: &mut Frame, app: &App) {
+    let area = centered_rect(60, 50, frame.area());
+    frame.render_widget(Clear, area);
+
+    // Build content with progress and log
+    let mut lines = Vec::new();
+
+    // Progress line
+    if app.download_total > 0 {
+        let progress = format!(
+            "Progress: [{}/{}]",
+            app.download_current, app.download_total
+        );
+        lines.push(progress);
+        lines.push(String::new());
+    }
+
+    // Current action
+    if !app.download_message.is_empty() {
+        lines.push(app.download_message.clone());
+        lines.push(String::new());
+    }
+
+    // Activity log
+    if !app.download_log.is_empty() {
+        lines.push("─── Activity Log ───".to_string());
+        for entry in &app.download_log {
+            lines.push(entry.clone());
+        }
+    }
+
+    let content = lines.join("\n");
+
+    let popup = Paragraph::new(content)
+        .style(Style::default().fg(app.colors.text()))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Downloading")
+                .border_style(Style::default().fg(app.colors.download())),
         )
         .wrap(Wrap { trim: true });
 
@@ -547,7 +604,7 @@ fn draw_help_modal(frame: &mut Frame, app: &App) {
             Block::default()
                 .borders(Borders::ALL)
                 .title(format!("Help - {}", title))
-                .border_style(Style::default().fg(Color::Cyan)),
+                .border_style(Style::default().fg(app.colors.border_focused())),
         )
         .wrap(Wrap { trim: false });
 
