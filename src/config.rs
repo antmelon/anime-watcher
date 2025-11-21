@@ -334,7 +334,6 @@ impl ColorScheme {
             "lightcyan" => Color::LightCyan,
             "white" => Color::White,
             hex if hex.starts_with('#') => {
-                let hex = hex.trim_start_matches('#');
                 if let Ok(rgb) = Self::parse_hex(hex) {
                     Color::Rgb(rgb.0, rgb.1, rgb.2)
                 } else {
@@ -346,8 +345,10 @@ impl ColorScheme {
     }
 
     /// Parse a hex color string to RGB values.
+    ///
+    /// Accepts strings with or without a leading '#'.
     fn parse_hex(hex: &str) -> Result<(u8, u8, u8), ()> {
-        let hex = hex.trim_start_matches('#');
+        let hex = hex.strip_prefix('#').unwrap_or(hex);
         match hex.len() {
             3 => {
                 let r = u8::from_str_radix(&hex[0..1], 16).map_err(|_| ())? * 17;
