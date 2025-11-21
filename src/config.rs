@@ -17,6 +17,21 @@ pub struct KeyBinding(pub String);
 
 impl KeyBinding {
     /// Check if this binding matches the given key event.
+    ///
+    /// Matches the key code and modifiers. SHIFT is allowed to pass through
+    /// since it affects character case. ALT and META must not be present
+    /// unless explicitly specified in the binding.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use anime_watcher::config::KeyBinding;
+    /// use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    ///
+    /// let binding = KeyBinding("j".to_string());
+    /// let key = KeyEvent::new(KeyCode::Char('j'), KeyModifiers::NONE);
+    /// assert!(binding.matches(&key));
+    /// ```
     pub fn matches(&self, key: &KeyEvent) -> bool {
         let binding = self.0.to_lowercase();
 
@@ -27,9 +42,27 @@ impl KeyBinding {
             (false, binding.as_str())
         };
 
-        // Verify modifiers match
+        // Verify CONTROL modifier matches the binding intent
         if has_ctrl != key.modifiers.contains(KeyModifiers::CONTROL) {
             return false;
+        }
+
+        // Reject unexpected modifiers (ALT, META) when binding doesn't specify them
+        // SHIFT is allowed since it affects character case
+        if !has_ctrl {
+            // When binding has no modifiers, reject ALT and META
+            if key.modifiers.contains(KeyModifiers::ALT)
+                || key.modifiers.contains(KeyModifiers::META)
+            {
+                return false;
+            }
+        } else {
+            // When binding has Ctrl, also reject ALT and META
+            if key.modifiers.contains(KeyModifiers::ALT)
+                || key.modifiers.contains(KeyModifiers::META)
+            {
+                return false;
+            }
         }
 
         // Match the key code
@@ -448,6 +481,43 @@ mod tests {
 
         assert!(ctrl_c.matches(&key_ctrl_c));
         assert!(!ctrl_c.matches(&key_c));
+    }
+
+    #[test]
+    fn test_keybinding_rejects_alt_meta_modifiers() {
+        let binding = KeyBinding("j".to_string());
+
+        // Should match with no modifiers
+        assert!(binding.matches(&KeyEvent::new(KeyCode::Char('j'), KeyModifiers::NONE)));
+
+        // Should match with SHIFT (SHIFT affects character case)
+        assert!(binding.matches(&KeyEvent::new(KeyCode::Char('j'), KeyModifiers::SHIFT)));
+
+        // Should reject ALT
+        assert!(!binding.matches(&KeyEvent::new(KeyCode::Char('j'), KeyModifiers::ALT)));
+
+        // Should reject META
+        assert!(!binding.matches(&KeyEvent::new(KeyCode::Char('j'), KeyModifiers::META)));
+
+        // Should reject ALT+SHIFT
+        let alt_shift = KeyModifiers::ALT | KeyModifiers::SHIFT;
+        assert!(!binding.matches(&KeyEvent::new(KeyCode::Char('j'), alt_shift)));
+    }
+
+    #[test]
+    fn test_keybinding_ctrl_rejects_alt_meta() {
+        let ctrl_c = KeyBinding("Ctrl+c".to_string());
+
+        // Should match Ctrl+c
+        assert!(ctrl_c.matches(&KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL)));
+
+        // Should reject Ctrl+Alt+c
+        let ctrl_alt = KeyModifiers::CONTROL | KeyModifiers::ALT;
+        assert!(!ctrl_c.matches(&KeyEvent::new(KeyCode::Char('c'), ctrl_alt)));
+
+        // Should reject Ctrl+Meta+c
+        let ctrl_meta = KeyModifiers::CONTROL | KeyModifiers::META;
+        assert!(!ctrl_c.matches(&KeyEvent::new(KeyCode::Char('c'), ctrl_meta)));
     }
 
     #[test]
