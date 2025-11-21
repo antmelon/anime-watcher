@@ -20,7 +20,7 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use log::{debug, info, warn};
+use log::{debug, info};
 use ratatui::prelude::*;
 use std::env;
 use std::io::{self, stdout};
@@ -329,6 +329,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         quality.clone(),
         download_mode,
         config.keybindings.clone(),
+        config.colors.clone(),
     );
 
     // Set up history for startup screen
@@ -633,29 +634,32 @@ async fn run_app(
                                 _ => vec![],
                             };
 
-                            // Perform batch download
+                            // Perform batch download with modal
                             let total = episodes_to_download.len();
+                            app.start_download_modal(total);
+                            terminal.draw(|f| draw(f, app))?;
+
                             for (idx, episode) in episodes_to_download.iter().enumerate() {
                                 let output_path =
                                     get_output_path(download_dir, &show.name, episode.number, mode);
 
                                 if output_path.exists() {
-                                    app.set_status(&format!(
-                                        "[{}/{}] Skipping {} (exists)",
+                                    app.update_download_progress(
                                         idx + 1,
-                                        total,
-                                        output_path.display()
+                                        &format!("Skipping Episode {} (exists)", episode.number),
+                                    );
+                                    app.add_download_log(&format!(
+                                        "✓ Ep {} skipped (exists)",
+                                        episode.number
                                     ));
                                     terminal.draw(|f| draw(f, app))?;
                                     continue;
                                 }
 
-                                app.set_loading(&format!(
-                                    "[{}/{}] Downloading Episode {}...",
+                                app.update_download_progress(
                                     idx + 1,
-                                    total,
-                                    episode.number
-                                ));
+                                    &format!("Downloading Episode {}...", episode.number),
+                                );
                                 terminal.draw(|f| draw(f, app))?;
 
                                 let episode_str = episode.number.to_string();
@@ -671,33 +675,35 @@ async fn run_app(
                                                         mode,
                                                     );
                                                     let _ = watch_history.save();
+                                                    app.add_download_log(&format!(
+                                                        "✓ Ep {} complete",
+                                                        episode.number
+                                                    ));
                                                 }
                                                 Err(e) => {
-                                                    app.set_error(&format!(
-                                                        "Download failed: {}",
-                                                        e
+                                                    app.add_download_log(&format!(
+                                                        "✗ Ep {} failed: {}",
+                                                        episode.number, e
                                                     ));
                                                     terminal.draw(|f| draw(f, app))?;
-                                                    tokio::time::sleep(Duration::from_secs(1))
-                                                        .await;
-                                                    app.clear_error();
                                                 }
                                             }
                                         }
                                     }
                                     _ => {
-                                        app.set_error(&format!(
-                                            "No sources for episode {}",
+                                        app.add_download_log(&format!(
+                                            "✗ Ep {} no sources",
                                             episode.number
                                         ));
                                         terminal.draw(|f| draw(f, app))?;
-                                        tokio::time::sleep(Duration::from_secs(1)).await;
-                                        app.clear_error();
                                     }
                                 }
                             }
 
-                            app.set_status("Download complete!");
+                            app.update_download_progress(total, "Download complete!");
+                            terminal.draw(|f| draw(f, app))?;
+                            tokio::time::sleep(Duration::from_secs(2)).await;
+                            app.close_download_modal();
                             app.screen = tui::Screen::EpisodeList;
                         }
                     }

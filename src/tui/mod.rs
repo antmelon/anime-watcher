@@ -9,7 +9,7 @@ mod types;
 
 pub use render::draw;
 pub use state::App;
-pub use types::{Action, Focus, Screen};
+pub use types::{Action, Screen};
 
 use crossterm::event::{self, Event};
 use std::io;

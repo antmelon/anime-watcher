@@ -6,8 +6,9 @@ use std::error::Error;
 use std::fmt;
 use std::io;
 
-/// Application error types.
+/// Application error types (reserved for future structured error handling).
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum AppError {
     /// Network/HTTP errors
     Network(String),
@@ -75,7 +76,8 @@ impl From<toml::de::Error> for AppError {
     }
 }
 
-/// Result type alias using AppError.
+/// Result type alias using AppError (reserved for future use).
+#[allow(dead_code)]
 pub type Result<T> = std::result::Result<T, AppError>;
 
 #[cfg(test)]

@@ -34,8 +34,8 @@ pub async fn download_file(
         .arg("mp4")
         .arg(url)
         .stdin(Stdio::null())
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
         .status()
         .map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {

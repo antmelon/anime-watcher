@@ -30,6 +30,7 @@ pub enum Focus {
 
 /// Actions that can be returned from the TUI.
 #[derive(Debug, Clone, PartialEq)]
+#[allow(dead_code)]
 pub enum Action {
     /// No action, continue running
     None,
