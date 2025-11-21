@@ -284,8 +284,8 @@ impl App {
             return Action::None;
         }
 
-        // `/` to focus search bar from anywhere
-        if key.code == KeyCode::Char('/') {
+        // Focus search bar from anywhere
+        if self.keybindings.matches(&self.keybindings.search, &key) {
             self.search_focused = true;
             return Action::None;
         }
@@ -530,8 +530,7 @@ impl App {
                 self.screen = Screen::ShowList;
             }
             Action::None
-        } else if key.code == KeyCode::Char('q') {
-            // Keep 'q' as quit even if not in quit bindings (for consistency)
+        } else if self.keybindings.matches(&self.keybindings.quit, &key) {
             self.should_quit = true;
             Action::Quit
         } else {
@@ -586,7 +585,7 @@ impl App {
         } else if self.keybindings.matches(&self.keybindings.back, &key) {
             self.screen = Screen::EpisodeList;
             Action::None
-        } else if key.code == KeyCode::Char('q') {
+        } else if self.keybindings.matches(&self.keybindings.quit, &key) {
             self.should_quit = true;
             Action::Quit
         } else {
@@ -677,7 +676,7 @@ impl App {
         } else if self.keybindings.matches(&self.keybindings.back, &key) {
             self.screen = Screen::EpisodeList;
             Action::None
-        } else if key.code == KeyCode::Char('q') {
+        } else if self.keybindings.matches(&self.keybindings.quit, &key) {
             self.should_quit = true;
             Action::Quit
         } else {

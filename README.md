@@ -158,7 +158,7 @@ CLI arguments override config file settings.
 
 ### Controls
 
-The TUI uses vim-style navigation by default. All keybindings can be customized in the config file.
+The TUI uses vim-style navigation by default. Most keybindings can be customized in the config file; Ctrl+C and Ctrl+Q always force quit.
 
 | Key | Action |
 |-----|--------|

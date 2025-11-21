@@ -142,18 +142,23 @@ impl Keybindings {
 }
 
 // Default keybinding functions
+
+/// Returns the default keybindings for moving up in lists.
 fn default_up() -> Vec<KeyBinding> {
     vec![KeyBinding("k".to_string()), KeyBinding("Up".to_string())]
 }
 
+/// Returns the default keybindings for moving down in lists.
 fn default_down() -> Vec<KeyBinding> {
     vec![KeyBinding("j".to_string()), KeyBinding("Down".to_string())]
 }
 
+/// Returns the default keybindings for selecting/confirming.
 fn default_select() -> Vec<KeyBinding> {
     vec![KeyBinding("Enter".to_string())]
 }
 
+/// Returns the default keybindings for going back.
 fn default_back() -> Vec<KeyBinding> {
     vec![
         KeyBinding("Backspace".to_string()),
@@ -161,42 +166,52 @@ fn default_back() -> Vec<KeyBinding> {
     ]
 }
 
+/// Returns the default keybindings for quitting the application.
 fn default_quit() -> Vec<KeyBinding> {
     vec![KeyBinding("q".to_string()), KeyBinding("Esc".to_string())]
 }
 
+/// Returns the default keybindings for focusing the search bar.
 fn default_search() -> Vec<KeyBinding> {
     vec![KeyBinding("s".to_string()), KeyBinding("/".to_string())]
 }
 
+/// Returns the default keybindings for toggling focus between sidebar and main.
 fn default_toggle_focus() -> Vec<KeyBinding> {
     vec![KeyBinding("Tab".to_string())]
 }
 
+/// Returns the default keybindings for showing help.
 fn default_help() -> Vec<KeyBinding> {
     vec![KeyBinding("?".to_string())]
 }
 
+/// Returns the default keybindings for filtering episodes.
 fn default_filter() -> Vec<KeyBinding> {
     vec![KeyBinding("f".to_string())]
 }
 
+/// Returns the default keybindings for playing the next episode.
 fn default_next() -> Vec<KeyBinding> {
     vec![KeyBinding("n".to_string())]
 }
 
+/// Returns the default keybindings for playing the previous episode.
 fn default_previous() -> Vec<KeyBinding> {
     vec![KeyBinding("p".to_string())]
 }
 
+/// Returns the default keybindings for replaying the current episode.
 fn default_replay() -> Vec<KeyBinding> {
     vec![KeyBinding("r".to_string())]
 }
 
+/// Returns the default keybindings for returning to episode selection.
 fn default_episodes() -> Vec<KeyBinding> {
     vec![KeyBinding("e".to_string())]
 }
 
+/// Returns the default keybindings for starting a new search.
 fn default_new_search() -> Vec<KeyBinding> {
     vec![KeyBinding("s".to_string()), KeyBinding("n".to_string())]
 }
@@ -235,14 +250,17 @@ impl Default for Config {
     }
 }
 
+/// Returns the default translation mode (subtitled).
 fn default_mode() -> String {
     "sub".to_string()
 }
 
+/// Returns the default video quality preference.
 fn default_quality() -> String {
     "best".to_string()
 }
 
+/// Returns the default download directory (current directory).
 fn default_download_dir() -> String {
     ".".to_string()
 }
