@@ -103,7 +103,34 @@ download_dir = "~/Downloads/anime"
 
 # Additional arguments to pass to the video player
 # player_args = ["--fullscreen", "--volume=80"]
+
+# Custom keybindings (all optional, shown with defaults)
+# [keybindings]
+# up = ["k", "Up"]
+# down = ["j", "Down"]
+# select = ["Enter"]
+# back = ["Backspace", "Esc"]
+# quit = ["q", "Esc"]
+# search = ["s", "/"]
+# toggle_focus = ["Tab"]
+# help = ["?"]
+# filter = ["f"]
+# next = ["n"]
+# previous = ["p"]
+# replay = ["r"]
+# episodes = ["e"]
+# new_search = ["s", "n"]
 ```
+
+#### Keybinding Format
+
+Keybindings support the following formats:
+- Single characters: `"j"`, `"k"`, `"q"`
+- Special keys: `"Enter"`, `"Esc"`, `"Tab"`, `"Backspace"`, `"Space"`
+- Arrow keys: `"Up"`, `"Down"`, `"Left"`, `"Right"`
+- With Ctrl modifier: `"Ctrl+c"`, `"Ctrl+q"`
+
+Each action can have multiple keybindings (e.g., `up = ["k", "Up"]`).
 
 #### Supported Players
 
@@ -131,7 +158,7 @@ CLI arguments override config file settings.
 
 ### Controls
 
-The TUI uses vim-style navigation:
+The TUI uses vim-style navigation by default. All keybindings can be customized in the config file.
 
 | Key | Action |
 |-----|--------|
@@ -189,7 +216,7 @@ cargo test
 - [ ] Add MAL/AniList integration
 - [ ] Support for manga reading
 - [x] Batch downloading
-- [ ] Custom keybindings
+- [x] Custom keybindings
 - [ ] Themes/colors for terminal output
 
 ### Technical Debt

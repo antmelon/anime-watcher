@@ -319,7 +319,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut terminal = init_terminal()?;
 
     // Create app state
-    let mut app = App::new(mode.clone(), quality.clone(), download_mode);
+    let mut app = App::new(
+        mode.clone(),
+        quality.clone(),
+        download_mode,
+        config.keybindings.clone(),
+    );
 
     // Set up history for startup screen
     let recent = watch_history.get_recent(10);
