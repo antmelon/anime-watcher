@@ -221,9 +221,9 @@ cargo test
 
 ### Technical Debt
 - [ ] Remove unused `download_dir` and `log` CLI arguments or implement them
-- [ ] Add integration tests with mock API responses
-- [ ] Improve error messages with more context
-- [ ] Add CI/CD pipeline
+- [x] Add integration tests with mock API responses
+- [x] Improve error messages with more context
+- [x] Add CI/CD pipeline
 
 ## License
 
